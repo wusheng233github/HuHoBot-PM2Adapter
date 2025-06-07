@@ -105,14 +105,19 @@ class Main extends PluginBase {
                     $server = $this->owner->getServer();
                     $onlineplayers = $server->getOnlinePlayers();
                     $str = count($onlineplayers) . '/' . $server->getMaxPlayers() . ' 在线';
+                    $num = 1;
                     foreach($onlineplayers as $i => $player) {
-                        $num = $i + 1;
                         $str .= "\n{$num}. {$player->getName()}: {$player->getNameTag()}";
+                        $num++; // ?
                     }
                     $this->owner->getNetworkThread()->queuei[] = serialize(['type' => 'queryOnline', 'id' => $data['id'], 'msg' => $str]); // TODO
                 } else if($data['type'] === 'sendConfig') {
                     $this->owner->getConfig()->set('hashkey', $data['hashkey']);
                     $this->owner->getConfig()->save();
+                } else if($data['type'] === 'chat') {
+                    $msg = '[群内消息] ' . $this->owner->getServer()->getLanguage()->translateString('%chat.type.text', [$data['nick'], $data['msg']]);
+                    $this->owner->getServer()->broadcastMessage($msg);
+                    $this->owner->getNetworkThread()->queuei[] = serialize(['type' => 'chat', 'msg' => $msg, 'id' => $data['id']]);
                 }
             }
             public function onCancel() {
@@ -179,6 +184,8 @@ class NetworkThread extends Thread {
                     } else if($input['type'] === 'shutdown') {
                         $shutdown = true;
                         break;
+                    } else if($input['type'] === 'chat') {
+                        $wsclient->send($this->construct('chat', ['serverId' => $this->serverid, 'msg' => $input['msg']], $input['id']));
                     }
                 }
                 $data = $wsclient->receive();
@@ -190,7 +197,7 @@ class NetworkThread extends Thread {
                 } else if($pktype === 'sendConfig') {
                     $this->queueo[] = serialize(['type' => 'sendConfig', 'hashkey' => $data['body']['hashKey']]); //
                 } else if($pktype === 'chat') { // TODO
-                    $wsclient->send($this->construct('chat', ['serverId' => $this->serverid, 'msg' => '我是服务端我收到了' . $data['body']['nick'] . '发送的消息内容是: ' . $data['body']['msg'] . '回复时间为' . time()], $data['header']['id']));
+                    $this->queueo[] = serialize(['type' => 'chat', 'msg' => $data['body']['msg'], 'nick' => $data['body']['nick'], 'id' => $data['header']['id']]);
                 } else if($pktype === 'cmd') { // TODO
                     $wsclient->send($this->construct('success', ['msg' => '我是服务端我不会执行你说的什么' . $data['body']['cmd'] . '命令'], $data['header']['id']));
                 } else if($pktype === 'run') { // TODO
