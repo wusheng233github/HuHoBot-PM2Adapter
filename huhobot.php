@@ -43,6 +43,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace wusheng233\HuHoBot;
 
+use Exception;
+use pocketmine\command\CommandSender;
+use pocketmine\command\Command;
+use pocketmine\command\PluginCommand;
+use pocketmine\permission\DefaultPermissions;
+use pocketmine\permission\Permission;
 use pocketmine\plugin\PluginBase;
 use pocketmine\scheduler\Task;
 use pocketmine\Thread;
@@ -63,7 +69,8 @@ use WebSocket\ConnectionException;
  * @license https://opensource.org/license/MIT MIT
  */
 class Main extends PluginBase {
-    private static $default_config = [
+    public static $pluginversion = 'dev'; // TODO
+    const DEFAULT_CONFIG = [
         'huhobotwsserver' => '119.91.100.129:8888', // TODO: 格式验证、清理
         'hashkey' => '',
         'servername' => ''
@@ -74,7 +81,9 @@ class Main extends PluginBase {
     private $networkthread;
     /** @var \pocketmine\scheduler\TaskHandler */
     private $queuereadtaskhandler;
+    private $bindrequests = [];
     public function onEnable() {
+        //self::$pluginversion = $this->getDescription()->getVersion();
         $datafolder = rtrim($this->getDataFolder(), '/');
         if(!file_exists($datafolder)) {
             mkdir($datafolder);
@@ -84,12 +93,21 @@ class Main extends PluginBase {
             $this->getServer()->getPluginManager()->disablePlugin($this);
             return false;
         }
-        $this->config = new Config($this->getDataFolder() . '/config.json', Config::JSON, self::$default_config);
-        if(!$this->config->exists('serverId')) {
-            $this->config->set('serverId', bin2hex(random_bytes(16)));
+        $this->config = new Config($this->getDataFolder() . '/config.json', Config::JSON, self::DEFAULT_CONFIG);
+        if(!$this->config->exists('serverid')) {
+            $this->config->set('serverid', bin2hex(random_bytes(16)));
             $this->config->save();
         }
-        $this->networkthread = new NetworkThread($this->config->get('huhobotwsserver', self::$default_config['huhobotwsserver']), $this->config->get('serverId', str_repeat('0', 32)), $this->getServer()->getLogger(), $this->config->get('hashkey', self::$default_config['hashkey']), $this->config->get('servername', self::$default_config['servername']));
+        $root = new Permission('huhobot', '允许控制HuHoBot插件', Permission::DEFAULT_OP);
+        DefaultPermissions::registerPermission($root);
+        DefaultPermissions::registerPermission(new Permission('huhobot.bind', '允许通过命令让服务器绑定QQ群', Permission::DEFAULT_OP), $root);
+        $command = new PluginCommand('huhobot', $this);
+        $command->setDescription('HuHoBot控制命令'); // TODO: 多语言
+        $command->setUsage('详情请在 /huhobot help 查看');
+        $command->setPermission('huhobot');
+        $command->setExecutor($this);
+        $this->getServer()->getCommandMap()->register($this->getName(), $command);
+        $this->networkthread = new NetworkThread($this->config->get('huhobotwsserver', self::DEFAULT_CONFIG['huhobotwsserver']), $this->getServer()->getLogger(), $this->config->get('serverid', str_repeat('0', 32)), $this->config->get('hashkey', self::DEFAULT_CONFIG['hashkey']), $this->config->get('servername', self::DEFAULT_CONFIG['servername']));
         $this->networkthread->start();
         $this->queuereadtaskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask(new class($this) extends Task {
             private $owner;
@@ -102,29 +120,137 @@ class Main extends PluginBase {
                     return;
                 }
                 $data = unserialize($data);
-                if($data['type'] === 'queryOnline') {
-                    $server = $this->owner->getServer();
-                    $onlineplayers = $server->getOnlinePlayers();
-                    $str = count($onlineplayers) . '/' . $server->getMaxPlayers() . ' 在线';
-                    $num = 1;
-                    foreach($onlineplayers as $i => $player) {
-                        $str .= "\n{$num}. {$player->getName()}: {$player->getNameTag()}";
-                        $num++; // ?
-                    }
-                    $this->owner->getNetworkThread()->queuei[] = serialize(['type' => 'queryOnline', 'id' => $data['id'], 'msg' => $str]); // TODO
-                } else if($data['type'] === 'sendConfig') {
-                    $this->owner->getConfig()->set('hashkey', $data['hashkey']);
-                    $this->owner->getConfig()->save();
-                } else if($data['type'] === 'chat') {
-                    $msg = '[群内消息] ' . $this->owner->getServer()->getLanguage()->translateString('%chat.type.text', [$data['nick'], $data['msg']]);
-                    $this->owner->getServer()->broadcastMessage($msg);
-                    $this->owner->getNetworkThread()->queuei[] = serialize(['type' => 'chat', 'msg' => $msg, 'id' => $data['id']]);
+                $pktype = $data['header']['type'];
+                switch($pktype) {
+                    case 'bindRequest':
+                        $this->owner->newBindRequest($data['body']['bindCode'], $data['header']['id']);
+                        break;
+                    case 'sendConfig':
+                        $this->owner->getConfig()->set('hashkey', $data['body']['hashKey']);
+                        $this->owner->getConfig()->save();
+                        $this->owner->getLogger()->notice('下发了新的绑定密钥');
+                        break;
+                    case 'heart':
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('internal', ['pong', time()], $data['header']['id']); // TODO: 查看延迟
+                        break;
+                    case 'shaked':
+                        switch($data['body']['code']) {
+                            case 1:
+                                $this->owner->getLogger()->info('握手成功');
+                                break;
+                            case 2:
+                                $this->owner->getLogger()->notice('握手成功，附带一条消息:');
+                                $this->owner->getLogger()->notice($data['body']['msg']);
+                                break;
+                            case 3:
+                                $this->owner->getLogger()->warning('绑定密钥信息不匹配');
+                                break;
+                            case 4:
+                                $this->owner->getLogger()->warning('客户端版本不匹配');
+                                break;
+                            case 5:
+                                $this->owner->getLogger()->warning('内部错误');
+                                break;
+                            case 6:
+                                $this->owner->getLogger()->notice('等待绑定');
+                                break;
+                            case 7: // TODO: 处理握手失败
+                                $this->owner->getLogger()->warning('IP被封');
+                                break;
+                            case 8:
+                                $this->owner->getLogger()->warning('服务器被封');
+                                break;
+                            default:
+                                $this->owner->getLogger()->warning('Code: ' . $data['body']['code'] . ' Message: ' . $data['body']['msg']);
+                                break;
+                        }
+                        break;
+                    case 'chat':
+                        $lines = explode("\n", $data['body']['msg']);
+                        $res = [];
+                        foreach($lines as $msg) {
+                            if($msg === '') {
+                                $msg = '（空白消息）';
+                            }
+                            $msg = '[群内消息] ' . $this->owner->getServer()->getLanguage()->translateString('%chat.type.text', [$data['body']['nick'], $msg]);
+                            $this->owner->getServer()->broadcastMessage($msg);
+                            $res[] = $msg;
+                        }
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('chat', ['msg' => implode("\n", $res), 'serverId' => $this->owner->getNetworkThread()->getServerId()], $data['header']['id']);
+                        break;
+                    case 'queryOnline':
+                        $server = $this->owner->getServer();
+                        $onlineplayers = $server->getOnlinePlayers();
+                        $str = count($onlineplayers) . '/' . $server->getMaxPlayers() . ' 在线';
+                        $num = 1;
+                        foreach($onlineplayers as $player) {
+                            $str .= "\n{$num}. {$player->getName()}: {$player->getNameTag()}";
+                            $num++; // ?
+                        }
+                        // TODO: 配置配图
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('queryOnline', ['list' => ['msg' => $str, 'url' => '1.14.51.4:19198', 'imgUrl' => 'https://www.gov.cn/shouye/datu/202506/W020250606312922700680_ORIGIN.jpg', 'post_img' => true, 'serverType' => 'bedrock']], $data['header']['id']);
+                        break;
+                    case 'cmd':
+                    case 'run':
+                    case 'runAdmin':
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => '未实现'], $data['header']['id']);
+                        break;
+                    case 'add':
+                        $this->owner->getServer()->addWhitelist($data['body']['xboxid']); // TODO: 验证
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => '已尝试添加白名单: ' . $data['body']['xboxid']], $data['header']['id']);
+                        break;
+                    case 'delete':
+                        $this->owner->getServer()->removeWhitelist($data['body']['xboxid']); // TODO: 验证
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => '已尝试移除白名单: ' . $data['body']['xboxid']], $data['header']['id']);
+                        break;
+                    default:
+                        $this->owner->getLogger()->debug('未实现: ' . json_encode($data, JSON_UNESCAPED_UNICODE));
+                        break;
                 }
             }
             public function onCancel() {
                 $this->owner->getNetworkThread()->queuei[] = serialize(['type' => 'shutdown']);
             }
         }, 10);
+        if($this->config->get('hashkey', '') === '') {
+            $this->getLogger()->notice('该服务器未绑定QQ群，要想绑定，请让HuHoBot机器人执行 /绑定 ' . $this->config->get('serverid', '服务器ID'));
+        }
+    }
+    public function onCommand(CommandSender $sender, Command $command, $label, array $args) {
+        if($command->getName() !== 'huhobot') {
+            return;
+        }
+        if(!$sender->hasPermission('huhobot')) {
+            $sender->sendMessage('你无权使用该命令');
+            return;
+        }
+        switch(isset($args[0]) ? $args[0] : '') { // TODO: reload
+            case 'help':
+                $sender->sendMessage('未完成');
+                break;
+            case 'bind':
+                if(!$sender->hasPermission('huhobot.bind')) {
+                    $sender->sendMessage('你无权使用该功能，缺少huhobot.bind权限');
+                    break;
+                }
+                if(!isset($args[1])) {
+                    $sender->sendMessage('未设置验证码: /huhobot bind <验证码>');
+                    break;
+                }
+                if(isset($this->bindrequests[$args[1]])) {
+                    $this->networkthread->queuei[] = HuHoBotClient::constructDataPacket('bindConfirm', [], $this->bindrequests[$args[1]]);
+                    $sender->sendMessage('已确认绑定服务器，等待下发绑定密钥');
+                    unset($this->bindrequests[$args[1]]);
+                }
+                break;
+            default:
+                return false;
+        }
+        return true;
+    }
+    public function newBindRequest(string $code, string $uuid) {
+        $this->getLogger()->notice('有新的绑定请求！使用 /huhobot bind ' . $code . ' 确认');
+        $this->bindrequests[$code] = $uuid;
     }
     public function getConfig() {
         return $this->config;
@@ -140,11 +266,11 @@ class NetworkThread extends Thread {
     public $queuei; // TODO
     public $queueo; // TODO
     private $huhobotwsserver;
-    private $serverid;
     private $logger;
+    private $serverid;
     private $hashkey; // hashkey是验证qq群绑定，绑定后自动创建hashkey.txt
     private $servername;
-    public function __construct(string $huhobotwsserver, $serverid, ThreadedLogger $logger, string $hashkey, string $servername) {
+    public function __construct(string $huhobotwsserver, ThreadedLogger $logger, string $serverid, string $hashkey, string $servername) {
         $this->queueo = new Threaded();
         $this->queuei = new Threaded();
         $this->huhobotwsserver = $huhobotwsserver;
@@ -153,7 +279,77 @@ class NetworkThread extends Thread {
         $this->hashkey = $hashkey;
         $this->servername = $servername;
     }
-    public function construct(string $type, array $body, $uuid = null) {
+    public function getServerId() {
+        return $this->serverid;
+    }
+    public function run() {
+        $wsclient = new HuHoBotClient('ws://' . $this->huhobotwsserver, [], $this->logger, $this->serverid, $this->hashkey, $this->servername);
+        $wsclient->setTimeout(1);
+        $shutdown = false; // TODO
+        $lastping = 0;
+        $lastpong = PHP_INT_MAX;
+        while(!$shutdown) {
+            try {
+                $input = $this->queuei->shift();
+                if($input !== null) {
+                    $decoded = json_decode($input, true);
+                    if($decoded === null) {
+                        $this->logger->warning('JSON解码错误: ' . json_last_error() . ' ' . json_last_error_msg() . ' ' . $input);
+                        continue;
+                    }
+                    if($decoded['header']['type'] === 'internal') {
+                        switch($decoded['body'][0]) {
+                            case 'pong':
+                                $lastpong = $decoded['body'][1]; // TODO: 乱序
+                            // TODO: 断开
+                        }
+                    } else {
+                        $wsclient->send($input);
+                    }
+                }
+                $data = json_decode($wsclient->receive(), true);
+                if($data === null) {
+                    $this->logger->warning('JSON解码错误: ' . json_last_error() . ' ' . json_last_error_msg() . ' ' . $data);
+                    continue;
+                }
+                $this->queueo[] = serialize($data);
+            } catch(ConnectionException $e) {
+                // TODO: 这没有正确实现心跳
+                $time = time();
+                if($lastpong < $time - 15) {
+                    $this->logger->warning('连接断开？pong已超时');
+                    $shutdown = true;
+                    break;
+                } else if($time - 10 > $lastping) { // TODO: 配置
+                    $wsclient->send(HuHoBotClient::constructDataPacket('heart', []));
+                    $lastping = $time;
+                }
+            } catch(Exception $e) {
+                $this->logger->logException($e);
+                $shutdown = true; // ?
+                break;
+            }
+        }
+        $this->logger->notice('已退出循环！');
+    }
+}
+class HuHoBotClient extends Client {
+    const PLATFORM_NAME = ''; // TODO: 发issue注册平台
+    protected $logger;
+    protected $serverid;
+    protected $hashkey;
+    protected $servername;
+    public function __construct($uri, array $options = array(), ThreadedLogger $logger, string $serverid, string $hashkey, string $servername) {
+        parent::__construct($uri, $options);
+        $this->logger = $logger;
+        $this->serverid = $serverid;
+        $this->hashkey = $hashkey;
+        $this->servername = $servername;
+    }
+    public function getLogger() {
+        return $this->logger;
+    }
+    public static function constructDataPacket(string $type, array $body, $uuid = null) {
         $data = json_encode([
             'header' => [
                 'type' => (string) $type,
@@ -161,62 +357,27 @@ class NetworkThread extends Thread {
             ],
             'body' => (array) $body
         ]);
-        $this->logger->info('[想发送] ' . $data);
         return $data; // TODO: false
     }
-    public function run() {
-        $wsclient = new Client('ws://' . $this->huhobotwsserver);
-        $wsclient->setTimeout(1);
-        // 这个是huhobot握手包，不要乱改
-        $wsclient->send($this->construct('shakeHand', [
+    public function connect() {
+        parent::connect();
+        $this->send(self::constructDataPacket('shakeHand', [
             'serverId' => $this->serverid,
             'hashKey' => $this->hashkey, // bin2hex(random_bytes(32))
             'name' => $this->servername, // TODO
-            'version' => 'dev', // 文档说可以设置dev版本
-            'platform' => ''
+            'version' => Main::$pluginversion, // 文档说可以设置dev版本
+            'platform' => self::PLATFORM_NAME
         ]));
-        $shutdown = false; // TODO
-        $lastheart = 0;
-        while(!$shutdown) {
-            try {
-                $input = $this->queuei->shift();
-                if($input !== null) {
-                    $input = unserialize($input);
-                    if($input['type'] === 'queryOnline') {
-                        $wsclient->send($this->construct('queryOnline', ['list' => ['msg' => $input['msg'], 'url' => '1.14.51.4:19198', 'imgUrl' => 'https://www.gov.cn/shouye/datu/202506/W020250606312922700680_ORIGIN.jpg', 'post_img' => true, 'serverType' => 'bedrock']], $input['id'])); // TODO
-                    } else if($input['type'] === 'shutdown') {
-                        $shutdown = true;
-                        break;
-                    } else if($input['type'] === 'chat') {
-                        $wsclient->send($this->construct('chat', ['serverId' => $this->serverid, 'msg' => $input['msg']], $input['id']));
-                    }
-                }
-                $data = $wsclient->receive();
-                $this->logger->notice('[接收到] ' . $data);
-                $data = json_decode($data, true);
-                $pktype = $data['header']['type'];
-                if($pktype === 'bindRequest') {
-                    $wsclient->send($this->construct('bindConfirm', [], $data['header']['id']));
-                } else if($pktype === 'sendConfig') {
-                    $this->queueo[] = serialize(['type' => 'sendConfig', 'hashkey' => $data['body']['hashKey']]); //
-                } else if($pktype === 'chat') { // TODO
-                    $this->queueo[] = serialize(['type' => 'chat', 'msg' => $data['body']['msg'], 'nick' => $data['body']['nick'], 'id' => $data['header']['id']]);
-                } else if($pktype === 'cmd') { // TODO
-                    $wsclient->send($this->construct('success', ['msg' => '我是服务端我不会执行你说的什么' . $data['body']['cmd'] . '命令'], $data['header']['id']));
-                } else if($pktype === 'run') { // TODO
-                    $wsclient->send($this->construct('success', ['msg' => '我是服务端我不执行你说的什么' . $data['body']['key']], $data['header']['id']));
-                } else if($pktype === 'queryOnline') {
-                    $this->queueo[] = serialize(['type' => 'queryOnline', 'id' => $data['header']['id']]);
-                }
-            } catch(ConnectionException $e) {
-                // TODO: 没有正确实现心跳
-                $time = time();
-                if($time > $lastheart + 10) {
-                    $wsclient->send($this->construct('heart', []));
-                    $lastheart = $time;
-                }
-            }
-        }
+        $this->logger->notice('已建立连接');
+    }
+    public function send($payload, $opcode = 'text', $masked = true) {
+        $this->logger->debug('[将发送] ' . $payload);
+        parent::send($payload, $opcode, $masked);
+    }
+    public function receive() {
+        $data = parent::receive();
+        $this->logger->debug('[接收到] ' . $data);
+        return $data;
     }
 }
 
@@ -611,7 +772,7 @@ namespace WebSocket;
 class Client extends Base
 {
     // Default options
-    protected static $default_options = [
+    protected $default_options = [ // 取消静态
       'timeout'       => 5,
       'fragment_size' => 4096,
       'context'       => null,
@@ -632,7 +793,7 @@ class Client extends Base
      */
     public function __construct($uri, $options = array())
     {
-        $this->options = array_merge(self::$default_options, $options);
+        $this->options = array_merge($this->default_options, $options);
         $this->socket_uri = $uri;
     }
 
