@@ -46,7 +46,9 @@ namespace wusheng233\HuHoBot;
 use Exception;
 use pocketmine\command\CommandSender;
 use pocketmine\command\Command;
+use pocketmine\command\ConsoleCommandSender;
 use pocketmine\command\PluginCommand;
+use pocketmine\event\TextContainer;
 use pocketmine\permission\DefaultPermissions;
 use pocketmine\permission\Permission;
 use pocketmine\plugin\PluginBase;
@@ -191,6 +193,9 @@ class Main extends PluginBase {
                         $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('queryOnline', ['list' => ['msg' => $str, 'url' => '1.14.51.4:19198', 'imgUrl' => 'https://www.gov.cn/shouye/datu/202506/W020250606312922700680_ORIGIN.jpg', 'post_img' => true, 'serverType' => 'bedrock']], $data['header']['id']);
                         break;
                     case 'cmd':
+                        $sender = new QQCommandSender();
+                        $this->owner->getServer()->dispatchCommand($sender, $data['body']['cmd']); // TODO: 防恶意命令？
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => implode("\n", $sender->getAllMessages())], $data['header']['id']);
                     case 'run':
                     case 'runAdmin':
                         $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => '未实现'], $data['header']['id']);
@@ -378,6 +383,25 @@ class HuHoBotClient extends Client {
         $data = parent::receive();
         $this->logger->debug('[接收到] ' . $data);
         return $data;
+    }
+}
+class QQCommandSender extends ConsoleCommandSender {
+    private $msg = [];
+    public function getName() {
+        return 'QQ Console';
+    }
+    public function sendMessage($message) {
+        if($message instanceof TextContainer) {
+            $message = $this->getServer()->getLanguage()->translate($message);
+        } else {
+            $message = $this->getServer()->getLanguage()->translateString($message);
+        }
+        foreach(explode("\n", $message) as $line) {
+            $this->msg[] = $line;
+        }
+    }
+    public function getAllMessages() {
+        return $this->msg;
     }
 }
 
