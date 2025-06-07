@@ -65,7 +65,8 @@ use WebSocket\ConnectionException;
 class Main extends PluginBase {
     private static $default_config = [
         'huhobotwsserver' => '119.91.100.129:8888', // TODO: 格式验证、清理
-        'hashkey' => ''
+        'hashkey' => '',
+        'servername' => ''
     ];
     /** @var Config */
     private $config;
@@ -88,7 +89,7 @@ class Main extends PluginBase {
             $this->config->set('serverId', bin2hex(random_bytes(16)));
             $this->config->save();
         }
-        $this->networkthread = new NetworkThread($this->config->get('huhobotwsserver', self::$default_config['huhobotwsserver']), $this->config->get('serverId', str_repeat('0', 32)), $this->getServer()->getLogger(), $this->config->get('hashkey', self::$default_config['hashkey']));
+        $this->networkthread = new NetworkThread($this->config->get('huhobotwsserver', self::$default_config['huhobotwsserver']), $this->config->get('serverId', str_repeat('0', 32)), $this->getServer()->getLogger(), $this->config->get('hashkey', self::$default_config['hashkey']), $this->config->get('servername', self::$default_config['servername']));
         $this->networkthread->start();
         $this->queuereadtaskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask(new class($this) extends Task {
             private $owner;
@@ -142,13 +143,15 @@ class NetworkThread extends Thread {
     private $serverid;
     private $logger;
     private $hashkey; // hashkey是验证qq群绑定，绑定后自动创建hashkey.txt
-    public function __construct(string $huhobotwsserver, $serverid, ThreadedLogger $logger, string $hashkey) {
+    private $servername;
+    public function __construct(string $huhobotwsserver, $serverid, ThreadedLogger $logger, string $hashkey, string $servername) {
         $this->queueo = new Threaded();
         $this->queuei = new Threaded();
         $this->huhobotwsserver = $huhobotwsserver;
         $this->serverid = $serverid;
         $this->logger = $logger;
         $this->hashkey = $hashkey;
+        $this->servername = $servername;
     }
     public function construct(string $type, array $body, $uuid = null) {
         $data = json_encode([
@@ -168,7 +171,7 @@ class NetworkThread extends Thread {
         $wsclient->send($this->construct('shakeHand', [
             'serverId' => $this->serverid,
             'hashKey' => $this->hashkey, // bin2hex(random_bytes(32))
-            'name' => '',
+            'name' => $this->servername, // TODO
             'version' => 'dev', // 文档说可以设置dev版本
             'platform' => ''
         ]));
