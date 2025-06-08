@@ -194,7 +194,7 @@ class Main extends PluginBase {
                             $num++; // ?
                         }
                         // TODO: 配置配图
-                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('queryOnline', ['list' => ['msg' => $str, 'url' => '1.14.51.4:19198', 'imgUrl' => 'https://www.gov.cn/shouye/datu/202506/W020250606312922700680_ORIGIN.jpg', 'post_img' => true, 'serverType' => 'bedrock']], $data['header']['id']);
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('queryOnline', ['list' => ['msg' => $str, 'url' => '1.14.51.4:19198', 'imgUrl' => 'https://tu.ltyuanfang.cn/api/fengjing.php', 'post_img' => true, 'serverType' => 'bedrock']], $data['header']['id']);
                         break;
                     case 'cmd':
                         $sender = new QQCommandSender();
@@ -213,13 +213,45 @@ class Main extends PluginBase {
                         $this->owner->getServer()->removeWhitelist($data['body']['xboxid']); // TODO: 验证
                         $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => '已尝试移除白名单: ' . $data['body']['xboxid']], $data['header']['id']);
                         break;
+                    case 'queryList':
+                        $keywords = isset($data['body']['key']) ? explode(' ', $data['body']['key']) : [];
+                        $whitelist = $this->owner->getServer()->getWhitelisted();
+                        $all = array_keys($whitelist->getAll());
+                        $page = 0;
+                        if(isset($data['body']['page'])) { // 换个位置？
+                            $page = $data['body']['page'] - 1;
+                        }
+                        $res = [];
+                        foreach($all as $playername) {
+                            foreach($keywords as $keyword) {
+                                if(strpos($playername, $keyword) === false) {
+                                    $playername = false;
+                                    break;
+                                }
+                            }
+                            if($playername !== false) {
+                                $res[] = $playername;
+                            }
+                        }
+                        $str = '找不到';
+                        $res = array_chunk($res, 10, true); // TODO: 配置
+                        if(!isset($res[$page])) {
+                            $page = 0;
+                        }
+                        if(isset($res[$page])) {
+                            $str = '第' . ($page + 1) . '/' . count($res) . "页\n" . implode("\n", array_map(function($key, $value) {
+                                return ($key + 1) . '. ' . $value;
+                            }, array_keys($res[$page]), $res[$page]));
+                        }
+                        $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('queryWl', ['list' => $str], $data['header']['id']);
+                        break;
                     default:
                         $this->owner->getLogger()->debug('未实现: ' . json_encode($data, JSON_UNESCAPED_UNICODE));
                         break;
                 }
             }
             public function onCancel() {
-                $this->owner->getNetworkThread()->queuei[] = serialize(['type' => 'shutdown']);
+                $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('internal', ['shutdown']);
             }
         }, 10);
         if($this->config->get('hashkey', '') === '') {
@@ -329,7 +361,11 @@ class NetworkThread extends Thread {
                         switch($decoded['body'][0]) {
                             case 'pong':
                                 $lastpong = $decoded['body'][1]; // TODO: 乱序
+                                break;
                             // TODO: 断开
+                            case 'shutdown':
+                                $shutdown = true;
+                                break 2;
                         }
                     } else {
                         $wsclient->send($input);
