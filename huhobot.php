@@ -119,7 +119,9 @@ class Main extends PluginBase implements Listener {
         $this->networkthread = new NetworkThread($this->config->get('huhobotwsserver', self::DEFAULT_CONFIG['huhobotwsserver']), $this->getServer()->getLogger(), $this->config->get('serverid', str_repeat('0', 32)), $this->config->get('hashkey', self::DEFAULT_CONFIG['hashkey']), $this->config->get('servername', self::DEFAULT_CONFIG['servername']));
         $this->networkthread->start();
         $this->queuereadtaskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask(new class($this) extends Task {
-            private $owner;
+            protected $owner;
+            protected $lastping = false;
+            protected $lastpong = false;
             public function __construct(Main $owner) {
                 $this->owner = $owner;
             }
@@ -142,7 +144,7 @@ class Main extends PluginBase implements Listener {
                             $this->owner->getLogger()->notice('下发了新的绑定密钥');
                             break;
                         case 'heart':
-                            $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('internal', ['pong', time()], $data['header']['id']); // TODO: 查看延迟
+                            $this->lastpong = time(); // TODO: 查看延迟
                             break;
                         case 'shaked':
                             switch($data['body']['code']) {
@@ -259,6 +261,16 @@ class Main extends PluginBase implements Listener {
                             break;
                     }
                     unset($this->owner->getNetworkThread()->queueo[$key]);
+                    $this->lastpong = time();
+                }
+                $time = time();
+                if($this->lastping !== false && $this->lastpong < $this->lastping - 15) {
+                    $this->owner->getLogger()->warning('连接断开？pong已超时');
+                    $this->owner->getTaskHandler()->cancel(); // TODO
+                    return;
+                } else if($time - 10 > $this->lastping) { // TODO: 配置
+                    $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('heart', []);
+                    $this->lastping = $time;
                 }
             }
             public function onCancel() {
@@ -326,6 +338,9 @@ class Main extends PluginBase implements Listener {
     public function getNetworkThread() {
         return $this->networkthread;
     }
+    public function getTaskHandler() { // TODO
+        return $this->queuereadtaskhandler;
+    }
     public function onDisable() {
         $this->queuereadtaskhandler->cancel();
     }
@@ -371,10 +386,7 @@ class NetworkThread extends Thread {
     public function run() {
         $wsclient = new HuHoBotClient('ws://' . $this->huhobotwsserver, [], $this->logger, $this->serverid, $this->hashkey, $this->servername);
         $wsclient->setTimeout(1);
-        $shutdown = false; // TODO
-        $lastping = 0;
-        $lastpong = PHP_INT_MAX;
-        while(!$shutdown) {
+        while(true) {
             try {
                 $input = $this->queuei->shift();
                 if($input !== null) {
@@ -385,12 +397,8 @@ class NetworkThread extends Thread {
                     }
                     if($decoded['header']['type'] === 'internal') {
                         switch($decoded['body'][0]) {
-                            case 'pong':
-                                $lastpong = $decoded['body'][1]; // TODO: 乱序
-                                break;
                             // TODO: 断开
                             case 'shutdown':
-                                $shutdown = true;
                                 break 2;
                         }
                     } else {
@@ -406,25 +414,21 @@ class NetworkThread extends Thread {
                 if($data['header']['type'] === 'shutdown') {
                     $this->logger->warning('远程服务器要求关闭连接，原因如下:');
                     $this->logger->warning($data['body']['msg']);
-                    $shutdown = true;
                     break;
                 }
             } catch(ConnectionException $e) {
-                // TODO: 这没有正确实现心跳
-                $time = time();
-                if($lastpong < $time - 15) {
-                    $this->logger->warning('连接断开？pong已超时');
-                    $shutdown = true;
-                    break;
-                } else if($time - 10 > $lastping) { // TODO: 配置
-                    $wsclient->send(HuHoBotClient::constructDataPacket('heart', []));
-                    $lastping = $time;
+                $socket = $wsclient->getSocket();
+                if($socket !== false && stream_get_meta_data($socket)['timed_out'] == true) {
+                    continue;
                 }
-            } catch(Exception $e) {
-                $this->logger->logException($e);
-                $shutdown = true; // ?
+                $this->logger->logException($e); // 这里不做心跳
                 break;
             }
+        }
+        try {
+            $wsclient->close();
+        } catch(ConnectionException $e) {
+            $this->logger->logException($e);
         }
         $this->logger->notice('已退出循环！'); // TODO
     }
@@ -474,6 +478,9 @@ class HuHoBotClient extends Client {
         $data = parent::receive();
         $this->logger->debug('[接收到] ' . $data);
         return $data;
+    }
+    public function getSocket() {
+        return $this->socket;
     }
 }
 class QQCommandSender extends ConsoleCommandSender {
