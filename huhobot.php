@@ -74,12 +74,11 @@ use WebSocket\ConnectionException;
  * @license https://opensource.org/license/MIT MIT
  */
 class Main extends PluginBase implements Listener {
-    public static $pluginversion = 'dev'; // TODO: 要不要填插件版本号？
     const DEFAULT_CONFIG = [
         'huhobotwsserver' => '119.91.100.129:8888', // TODO: 格式验证、清理
         'hashkey' => '',
         'servername' => '',
-        'removeemoji' => true,
+        'enablefilter' => true,
         'chatforwarding' => true,
         'whitelistitemsperpage' => 10,
         'pingperiod' => 10,
@@ -90,7 +89,15 @@ class Main extends PluginBase implements Listener {
         'serverurl' => '1.14.51.4:19198',
         'showplayernametag' => true,
         'readperiod' => 10,
-        'commandsendername' => 'QQ Console'
+        'commandsendername' => 'QQ Console',
+        'platformname' => '',
+        'platformversion' => 'dev', // TODO: 要不要填插件版本号？
+        // https://jamesqi.com/%E5%8D%9A%E5%AE%A2/%E5%8C%B9%E9%85%8DEmoji%E7%9A%84%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F
+        'filter' => '/[\\x{1F1E6}-\\x{1F1FF}][\\x{1F1E6}-\\x{1F1FF}]|[\\x{00A9}|\\x{00AE}|\\x{203C}|\\x{2049}|\\x{2122}|\\x{2139}|\\x{2194}-\\x{2199}|\\x{21A9}-\\x{21AA}|\\x{231A}-\\x{231B}|\\x{2328}|\\x{23CF}|\\x{23E9}-\\x{23EC}|\\x{23ED}-\\x{23EE}|\\x{23EF}|\\x{23F0}|\\x{23F1}-\\x{23F2}|\\x{23F3}|\\x{23F8}-\\x{23FA}|\\x{24C2}|\\x{25AA}-\\x{25AB}|\\x{25B6}|\\x{25C0}|\\x{25FB}-\\x{25FE}|\\x{2600}-\\x{2601}|\\x{2602}-\\x{2603}|\\x{2604}|\\x{260E}|\\x{2611}|\\x{2614}-\\x{2615}|\\x{2618}|\\x{261D}|\\x{2620}|\\x{2622}-\\x{2623}|\\x{2626}|\\x{262A}|\\x{262E}|\\x{262F}|\\x{2638}-\\x{2639}|\\x{263A}|\\x{2640}|\\x{2642}|\\x{2648}-\\x{2653}|\\x{265F}|\\x{2660}|\\x{2663}|\\x{2665}-\\x{2666}|\\x{2668}|\\x{267B}|\\x{267E}|\\x{267F}|\\x{2692}|\\x{2693}|\\x{2694}|\\x{2695}|\\x{2696}-\\x{2697}|\\x{2699}|\\x{269B}-\\x{269C}|\\x{26A0}-\\x{26A1}|\\x{26A7}|\\x{26AA}-\\x{26AB}|\\x{26B0}-\\x{26B1}|\\x{26BD}-\\x{26BE}|\\x{26C4}-\\x{26C5}|\\x{26C8}|\\x{26CE}|\\x{26CF}|\\x{26D1}|\\x{26D3}|\\x{26D4}|\\x{26E9}|\\x{26EA}|\\x{26F0}-\\x{26F1}|\\x{26F2}-\\x{26F3}|\\x{26F4}|\\x{26F5}|\\x{26F7}-\\x{26F9}|\\x{26FA}|\\x{26FD}|\\x{2702}|\\x{2705}|\\x{2708}-\\x{270C}|\\x{270D}|\\x{270F}|\\x{2712}|\\x{2714}|\\x{2716}|\\x{271D}|\\x{2721}|\\x{2728}|\\x{2733}-\\x{2734}|\\x{2744}|\\x{2747}|\\x{274C}|\\x{274E}|\\x{2753}-\\x{2755}|\\x{2757}|\\x{2763}|\\x{2764}|\\x{2795}-\\x{2797}|\\x{27A1}|\\x{27B0}|\\x{27BF}|\\x{2934}-\\x{2935}|\\x{2B05}-\\x{2B07}|\\x{2B1B}-\\x{2B1C}|\\x{2B50}|\\x{2B55}|\\x{3030}|\\x{303D}|\\x{3297}|\\x{3299}|\\x{1F004}|\\x{1F0CF}|\\x{1F170}-\\x{1F171}|\\x{1F17E}-\\x{1F17F}|\\x{1F18E}|\\x{1F191}-\\x{1F19A}|\\x{1F1E6}-\\x{1F1FF}|\\x{1F201}-\\x{1F202}|\\x{1F21A}|\\x{1F22F}|\\x{1F232}-\\x{1F23A}|\\x{1F250}-\\x{1F251}|\\x{1F300}-\\x{1F30C}|\\x{1F30D}-\\x{1F30E}|\\x{1F30F}|\\x{1F310}|\\x{1F311}|\\x{1F312}|\\x{1F313}-\\x{1F315}|\\x{1F316}-\\x{1F318}|\\x{1F319}|\\x{1F31A}|\\x{1F31B}|\\x{1F31C}|\\x{1F31D}-\\x{1F31E}|\\x{1F31F}-\\x{1F320}|\\x{1F321}|\\x{1F324}-\\x{1F32C}|\\x{1F32D}-\\x{1F32F}|\\x{1F330}-\\x{1F331}|\\x{1F332}-\\x{1F333}|\\x{1F334}-\\x{1F335}|\\x{1F336}|\\x{1F337}-\\x{1F34A}|\\x{1F34B}|\\x{1F34C}-\\x{1F34F}|\\x{1F350}|\\x{1F351}-\\x{1F37B}|\\x{1F37C}|\\x{1F37D}|\\x{1F37E}-\\x{1F37F}|\\x{1F380}-\\x{1F393}|\\x{1F396}-\\x{1F397}|\\x{1F399}-\\x{1F39B}|\\x{1F39E}-\\x{1F39F}|\\x{1F3A0}-\\x{1F3C4}|\\x{1F3C5}|\\x{1F3C6}|\\x{1F3C7}|\\x{1F3C8}|\\x{1F3C9}|\\x{1F3CA}|\\x{1F3CB}-\\x{1F3CE}|\\x{1F3CF}-\\x{1F3D3}|\\x{1F3D4}-\\x{1F3DF}|\\x{1F3E0}-\\x{1F3E3}|\\x{1F3E4}|\\x{1F3E5}-\\x{1F3F0}|\\x{1F3F3}|\\x{1F3F4}|\\x{1F3F5}|\\x{1F3F7}|\\x{1F3F8}-\\x{1F407}|\\x{1F408}|\\x{1F409}-\\x{1F40B}|\\x{1F40C}-\\x{1F40E}|\\x{1F40F}-\\x{1F410}|\\x{1F411}-\\x{1F412}|\\x{1F413}|\\x{1F414}|\\x{1F415}|\\x{1F416}|\\x{1F417}-\\x{1F429}|\\x{1F42A}|\\x{1F42B}-\\x{1F43E}|\\x{1F43F}|\\x{1F440}|\\x{1F441}|\\x{1F442}-\\x{1F464}|\\x{1F465}|\\x{1F466}-\\x{1F46B}|\\x{1F46C}-\\x{1F46D}|\\x{1F46E}-\\x{1F4AC}|\\x{1F4AD}|\\x{1F4AE}-\\x{1F4B5}|\\x{1F4B6}-\\x{1F4B7}|\\x{1F4B8}-\\x{1F4EB}|\\x{1F4EC}-\\x{1F4ED}|\\x{1F4EE}|\\x{1F4EF}|\\x{1F4F0}-\\x{1F4F4}|\\x{1F4F5}|\\x{1F4F6}-\\x{1F4F7}|\\x{1F4F8}|\\x{1F4F9}-\\x{1F4FC}|\\x{1F4FD}|\\x{1F4FF}-\\x{1F502}|\\x{1F503}|\\x{1F504}-\\x{1F507}|\\x{1F508}|\\x{1F509}|\\x{1F50A}-\\x{1F514}|\\x{1F515}|\\x{1F516}-\\x{1F52B}|\\x{1F52C}-\\x{1F52D}|\\x{1F52E}-\\x{1F53D}|\\x{1F549}-\\x{1F54A}|\\x{1F54B}-\\x{1F54E}|\\x{1F550}-\\x{1F55B}|\\x{1F55C}-\\x{1F567}|\\x{1F56F}-\\x{1F570}|\\x{1F573}-\\x{1F579}|\\x{1F57A}|\\x{1F587}|\\x{1F58A}-\\x{1F58D}|\\x{1F590}|\\x{1F595}-\\x{1F596}|\\x{1F5A4}|\\x{1F5A5}|\\x{1F5A8}|\\x{1F5B1}-\\x{1F5B2}|\\x{1F5BC}|\\x{1F5C2}-\\x{1F5C4}|\\x{1F5D1}-\\x{1F5D3}|\\x{1F5DC}-\\x{1F5DE}|\\x{1F5E1}|\\x{1F5E3}|\\x{1F5E8}|\\x{1F5EF}|\\x{1F5F3}|\\x{1F5FA}|\\x{1F5FB}-\\x{1F5FF}|\\x{1F600}|\\x{1F601}-\\x{1F606}|\\x{1F607}-\\x{1F608}|\\x{1F609}-\\x{1F60D}|\\x{1F60E}|\\x{1F60F}|\\x{1F610}|\\x{1F611}|\\x{1F612}-\\x{1F614}|\\x{1F615}|\\x{1F616}|\\x{1F617}|\\x{1F618}|\\x{1F619}|\\x{1F61A}|\\x{1F61B}|\\x{1F61C}-\\x{1F61E}|\\x{1F61F}|\\x{1F620}-\\x{1F625}|\\x{1F626}-\\x{1F627}|\\x{1F628}-\\x{1F62B}|\\x{1F62C}|\\x{1F62D}|\\x{1F62E}-\\x{1F62F}|\\x{1F630}-\\x{1F633}|\\x{1F634}|\\x{1F635}|\\x{1F636}|\\x{1F637}-\\x{1F640}|\\x{1F641}-\\x{1F644}|\\x{1F645}-\\x{1F64F}|\\x{1F680}|\\x{1F681}-\\x{1F682}|\\x{1F683}-\\x{1F685}|\\x{1F686}|\\x{1F687}|\\x{1F688}|\\x{1F689}|\\x{1F68A}-\\x{1F68B}|\\x{1F68C}|\\x{1F68D}|\\x{1F68E}|\\x{1F68F}|\\x{1F690}|\\x{1F691}-\\x{1F693}|\\x{1F694}|\\x{1F695}|\\x{1F696}|\\x{1F697}|\\x{1F698}|\\x{1F699}-\\x{1F69A}|\\x{1F69B}-\\x{1F6A1}|\\x{1F6A2}|\\x{1F6A3}|\\x{1F6A4}-\\x{1F6A5}|\\x{1F6A6}|\\x{1F6A7}-\\x{1F6AD}|\\x{1F6AE}-\\x{1F6B1}|\\x{1F6B2}|\\x{1F6B3}-\\x{1F6B5}|\\x{1F6B6}|\\x{1F6B7}-\\x{1F6B8}|\\x{1F6B9}-\\x{1F6BE}|\\x{1F6BF}|\\x{1F6C0}|\\x{1F6C1}-\\x{1F6C5}|\\x{1F6CB}|\\x{1F6CC}|\\x{1F6CD}-\\x{1F6CF}|\\x{1F6D0}|\\x{1F6D1}-\\x{1F6D2}|\\x{1F6D5}|\\x{1F6D6}-\\x{1F6D7}|\\x{1F6DD}-\\x{1F6DF}|\\x{1F6E0}-\\x{1F6E5}|\\x{1F6E9}|\\x{1F6EB}-\\x{1F6EC}|\\x{1F6F0}|\\x{1F6F3}|\\x{1F6F4}-\\x{1F6F6}|\\x{1F6F7}-\\x{1F6F8}|\\x{1F6F9}|\\x{1F6FA}|\\x{1F6FB}-\\x{1F6FC}|\\x{1F7E0}-\\x{1F7EB}|\\x{1F7F0}|\\x{1F90C}|\\x{1F90D}-\\x{1F90F}|\\x{1F910}-\\x{1F918}|\\x{1F919}-\\x{1F91E}|\\x{1F91F}|\\x{1F920}-\\x{1F927}|\\x{1F928}-\\x{1F92F}|\\x{1F930}|\\x{1F931}-\\x{1F932}|\\x{1F933}-\\x{1F93A}|\\x{1F93C}-\\x{1F93E}|\\x{1F93F}|\\x{1F940}-\\x{1F945}|\\x{1F947}-\\x{1F94B}|\\x{1F94C}|\\x{1F94D}-\\x{1F94F}|\\x{1F950}-\\x{1F95E}|\\x{1F95F}-\\x{1F96B}|\\x{1F96C}-\\x{1F970}|\\x{1F971}|\\x{1F972}|\\x{1F973}-\\x{1F976}|\\x{1F977}-\\x{1F978}|\\x{1F979}|\\x{1F97A}|\\x{1F97B}|\\x{1F97C}-\\x{1F97F}|\\x{1F980}-\\x{1F984}|\\x{1F985}-\\x{1F991}|\\x{1F992}-\\x{1F997}|\\x{1F998}-\\x{1F9A2}|\\x{1F9A3}-\\x{1F9A4}|\\x{1F9A5}-\\x{1F9AA}|\\x{1F9AB}-\\x{1F9AD}|\\x{1F9AE}-\\x{1F9AF}|\\x{1F9B0}-\\x{1F9B9}|\\x{1F9BA}-\\x{1F9BF}|\\x{1F9C0}|\\x{1F9C1}-\\x{1F9C2}|\\x{1F9C3}-\\x{1F9CA}|\\x{1F9CB}|\\x{1F9CC}|\\x{1F9CD}-\\x{1F9CF}|\\x{1F9D0}-\\x{1F9E6}|\\x{1F9E7}-\\x{1F9FF}|\\x{1FA70}-\\x{1FA73}|\\x{1FA74}|\\x{1FA78}-\\x{1FA7A}|\\x{1FA7B}-\\x{1FA7C}|\\x{1FA80}-\\x{1FA82}|\\x{1FA83}-\\x{1FA86}|\\x{1FA90}-\\x{1FA95}|\\x{1FA96}-\\x{1FAA8}|\\x{1FAA9}-\\x{1FAAC}|\\x{1FAB0}-\\x{1FAB6}|\\x{1FAB7}-\\x{1FABA}|\\x{1FAC0}-\\x{1FAC2}|\\x{1FAC3}-\\x{1FAC5}|\\x{1FAD0}-\\x{1FAD6}|\\x{1FAD7}-\\x{1FAD9}|\\x{1FAE0}-\\x{1FAE7}|\\x{1FAF0}-\\x{1FAF6}]([\\x{1F3FB}-\\x{1F3FF}]|\\x{FE0F}\\x{20E3}?|[\\x{E0020}-\\x{E007E}]+\\x{E007F}?)?(\\x{200D}[\\x{00A9}|\\x{00AE}|\\x{203C}|\\x{2049}|\\x{2122}|\\x{2139}|\\x{2194}-\\x{2199}|\\x{21A9}-\\x{21AA}|\\x{231A}-\\x{231B}|\\x{2328}|\\x{23CF}|\\x{23E9}-\\x{23EC}|\\x{23ED}-\\x{23EE}|\\x{23EF}|\\x{23F0}|\\x{23F1}-\\x{23F2}|\\x{23F3}|\\x{23F8}-\\x{23FA}|\\x{24C2}|\\x{25AA}-\\x{25AB}|\\x{25B6}|\\x{25C0}|\\x{25FB}-\\x{25FE}|\\x{2600}-\\x{2601}|\\x{2602}-\\x{2603}|\\x{2604}|\\x{260E}|\\x{2611}|\\x{2614}-\\x{2615}|\\x{2618}|\\x{261D}|\\x{2620}|\\x{2622}-\\x{2623}|\\x{2626}|\\x{262A}|\\x{262E}|\\x{262F}|\\x{2638}-\\x{2639}|\\x{263A}|\\x{2640}|\\x{2642}|\\x{2648}-\\x{2653}|\\x{265F}|\\x{2660}|\\x{2663}|\\x{2665}-\\x{2666}|\\x{2668}|\\x{267B}|\\x{267E}|\\x{267F}|\\x{2692}|\\x{2693}|\\x{2694}|\\x{2695}|\\x{2696}-\\x{2697}|\\x{2699}|\\x{269B}-\\x{269C}|\\x{26A0}-\\x{26A1}|\\x{26A7}|\\x{26AA}-\\x{26AB}|\\x{26B0}-\\x{26B1}|\\x{26BD}-\\x{26BE}|\\x{26C4}-\\x{26C5}|\\x{26C8}|\\x{26CE}|\\x{26CF}|\\x{26D1}|\\x{26D3}|\\x{26D4}|\\x{26E9}|\\x{26EA}|\\x{26F0}-\\x{26F1}|\\x{26F2}-\\x{26F3}|\\x{26F4}|\\x{26F5}|\\x{26F7}-\\x{26F9}|\\x{26FA}|\\x{26FD}|\\x{2702}|\\x{2705}|\\x{2708}-\\x{270C}|\\x{270D}|\\x{270F}|\\x{2712}|\\x{2714}|\\x{2716}|\\x{271D}|\\x{2721}|\\x{2728}|\\x{2733}-\\x{2734}|\\x{2744}|\\x{2747}|\\x{274C}|\\x{274E}|\\x{2753}-\\x{2755}|\\x{2757}|\\x{2763}|\\x{2764}|\\x{2795}-\\x{2797}|\\x{27A1}|\\x{27B0}|\\x{27BF}|\\x{2934}-\\x{2935}|\\x{2B05}-\\x{2B07}|\\x{2B1B}-\\x{2B1C}|\\x{2B50}|\\x{2B55}|\\x{3030}|\\x{303D}|\\x{3297}|\\x{3299}|\\x{1F004}|\\x{1F0CF}|\\x{1F170}-\\x{1F171}|\\x{1F17E}-\\x{1F17F}|\\x{1F18E}|\\x{1F191}-\\x{1F19A}|\\x{1F1E6}-\\x{1F1FF}|\\x{1F201}-\\x{1F202}|\\x{1F21A}|\\x{1F22F}|\\x{1F232}-\\x{1F23A}|\\x{1F250}-\\x{1F251}|\\x{1F300}-\\x{1F30C}|\\x{1F30D}-\\x{1F30E}|\\x{1F30F}|\\x{1F310}|\\x{1F311}|\\x{1F312}|\\x{1F313}-\\x{1F315}|\\x{1F316}-\\x{1F318}|\\x{1F319}|\\x{1F31A}|\\x{1F31B}|\\x{1F31C}|\\x{1F31D}-\\x{1F31E}|\\x{1F31F}-\\x{1F320}|\\x{1F321}|\\x{1F324}-\\x{1F32C}|\\x{1F32D}-\\x{1F32F}|\\x{1F330}-\\x{1F331}|\\x{1F332}-\\x{1F333}|\\x{1F334}-\\x{1F335}|\\x{1F336}|\\x{1F337}-\\x{1F34A}|\\x{1F34B}|\\x{1F34C}-\\x{1F34F}|\\x{1F350}|\\x{1F351}-\\x{1F37B}|\\x{1F37C}|\\x{1F37D}|\\x{1F37E}-\\x{1F37F}|\\x{1F380}-\\x{1F393}|\\x{1F396}-\\x{1F397}|\\x{1F399}-\\x{1F39B}|\\x{1F39E}-\\x{1F39F}|\\x{1F3A0}-\\x{1F3C4}|\\x{1F3C5}|\\x{1F3C6}|\\x{1F3C7}|\\x{1F3C8}|\\x{1F3C9}|\\x{1F3CA}|\\x{1F3CB}-\\x{1F3CE}|\\x{1F3CF}-\\x{1F3D3}|\\x{1F3D4}-\\x{1F3DF}|\\x{1F3E0}-\\x{1F3E3}|\\x{1F3E4}|\\x{1F3E5}-\\x{1F3F0}|\\x{1F3F3}|\\x{1F3F4}|\\x{1F3F5}|\\x{1F3F7}|\\x{1F3F8}-\\x{1F407}|\\x{1F408}|\\x{1F409}-\\x{1F40B}|\\x{1F40C}-\\x{1F40E}|\\x{1F40F}-\\x{1F410}|\\x{1F411}-\\x{1F412}|\\x{1F413}|\\x{1F414}|\\x{1F415}|\\x{1F416}|\\x{1F417}-\\x{1F429}|\\x{1F42A}|\\x{1F42B}-\\x{1F43E}|\\x{1F43F}|\\x{1F440}|\\x{1F441}|\\x{1F442}-\\x{1F464}|\\x{1F465}|\\x{1F466}-\\x{1F46B}|\\x{1F46C}-\\x{1F46D}|\\x{1F46E}-\\x{1F4AC}|\\x{1F4AD}|\\x{1F4AE}-\\x{1F4B5}|\\x{1F4B6}-\\x{1F4B7}|\\x{1F4B8}-\\x{1F4EB}|\\x{1F4EC}-\\x{1F4ED}|\\x{1F4EE}|\\x{1F4EF}|\\x{1F4F0}-\\x{1F4F4}|\\x{1F4F5}|\\x{1F4F6}-\\x{1F4F7}|\\x{1F4F8}|\\x{1F4F9}-\\x{1F4FC}|\\x{1F4FD}|\\x{1F4FF}-\\x{1F502}|\\x{1F503}|\\x{1F504}-\\x{1F507}|\\x{1F508}|\\x{1F509}|\\x{1F50A}-\\x{1F514}|\\x{1F515}|\\x{1F516}-\\x{1F52B}|\\x{1F52C}-\\x{1F52D}|\\x{1F52E}-\\x{1F53D}|\\x{1F549}-\\x{1F54A}|\\x{1F54B}-\\x{1F54E}|\\x{1F550}-\\x{1F55B}|\\x{1F55C}-\\x{1F567}|\\x{1F56F}-\\x{1F570}|\\x{1F573}-\\x{1F579}|\\x{1F57A}|\\x{1F587}|\\x{1F58A}-\\x{1F58D}|\\x{1F590}|\\x{1F595}-\\x{1F596}|\\x{1F5A4}|\\x{1F5A5}|\\x{1F5A8}|\\x{1F5B1}-\\x{1F5B2}|\\x{1F5BC}|\\x{1F5C2}-\\x{1F5C4}|\\x{1F5D1}-\\x{1F5D3}|\\x{1F5DC}-\\x{1F5DE}|\\x{1F5E1}|\\x{1F5E3}|\\x{1F5E8}|\\x{1F5EF}|\\x{1F5F3}|\\x{1F5FA}|\\x{1F5FB}-\\x{1F5FF}|\\x{1F600}|\\x{1F601}-\\x{1F606}|\\x{1F607}-\\x{1F608}|\\x{1F609}-\\x{1F60D}|\\x{1F60E}|\\x{1F60F}|\\x{1F610}|\\x{1F611}|\\x{1F612}-\\x{1F614}|\\x{1F615}|\\x{1F616}|\\x{1F617}|\\x{1F618}|\\x{1F619}|\\x{1F61A}|\\x{1F61B}|\\x{1F61C}-\\x{1F61E}|\\x{1F61F}|\\x{1F620}-\\x{1F625}|\\x{1F626}-\\x{1F627}|\\x{1F628}-\\x{1F62B}|\\x{1F62C}|\\x{1F62D}|\\x{1F62E}-\\x{1F62F}|\\x{1F630}-\\x{1F633}|\\x{1F634}|\\x{1F635}|\\x{1F636}|\\x{1F637}-\\x{1F640}|\\x{1F641}-\\x{1F644}|\\x{1F645}-\\x{1F64F}|\\x{1F680}|\\x{1F681}-\\x{1F682}|\\x{1F683}-\\x{1F685}|\\x{1F686}|\\x{1F687}|\\x{1F688}|\\x{1F689}|\\x{1F68A}-\\x{1F68B}|\\x{1F68C}|\\x{1F68D}|\\x{1F68E}|\\x{1F68F}|\\x{1F690}|\\x{1F691}-\\x{1F693}|\\x{1F694}|\\x{1F695}|\\x{1F696}|\\x{1F697}|\\x{1F698}|\\x{1F699}-\\x{1F69A}|\\x{1F69B}-\\x{1F6A1}|\\x{1F6A2}|\\x{1F6A3}|\\x{1F6A4}-\\x{1F6A5}|\\x{1F6A6}|\\x{1F6A7}-\\x{1F6AD}|\\x{1F6AE}-\\x{1F6B1}|\\x{1F6B2}|\\x{1F6B3}-\\x{1F6B5}|\\x{1F6B6}|\\x{1F6B7}-\\x{1F6B8}|\\x{1F6B9}-\\x{1F6BE}|\\x{1F6BF}|\\x{1F6C0}|\\x{1F6C1}-\\x{1F6C5}|\\x{1F6CB}|\\x{1F6CC}|\\x{1F6CD}-\\x{1F6CF}|\\x{1F6D0}|\\x{1F6D1}-\\x{1F6D2}|\\x{1F6D5}|\\x{1F6D6}-\\x{1F6D7}|\\x{1F6DD}-\\x{1F6DF}|\\x{1F6E0}-\\x{1F6E5}|\\x{1F6E9}|\\x{1F6EB}-\\x{1F6EC}|\\x{1F6F0}|\\x{1F6F3}|\\x{1F6F4}-\\x{1F6F6}|\\x{1F6F7}-\\x{1F6F8}|\\x{1F6F9}|\\x{1F6FA}|\\x{1F6FB}-\\x{1F6FC}|\\x{1F7E0}-\\x{1F7EB}|\\x{1F7F0}|\\x{1F90C}|\\x{1F90D}-\\x{1F90F}|\\x{1F910}-\\x{1F918}|\\x{1F919}-\\x{1F91E}|\\x{1F91F}|\\x{1F920}-\\x{1F927}|\\x{1F928}-\\x{1F92F}|\\x{1F930}|\\x{1F931}-\\x{1F932}|\\x{1F933}-\\x{1F93A}|\\x{1F93C}-\\x{1F93E}|\\x{1F93F}|\\x{1F940}-\\x{1F945}|\\x{1F947}-\\x{1F94B}|\\x{1F94C}|\\x{1F94D}-\\x{1F94F}|\\x{1F950}-\\x{1F95E}|\\x{1F95F}-\\x{1F96B}|\\x{1F96C}-\\x{1F970}|\\x{1F971}|\\x{1F972}|\\x{1F973}-\\x{1F976}|\\x{1F977}-\\x{1F978}|\\x{1F979}|\\x{1F97A}|\\x{1F97B}|\\x{1F97C}-\\x{1F97F}|\\x{1F980}-\\x{1F984}|\\x{1F985}-\\x{1F991}|\\x{1F992}-\\x{1F997}|\\x{1F998}-\\x{1F9A2}|\\x{1F9A3}-\\x{1F9A4}|\\x{1F9A5}-\\x{1F9AA}|\\x{1F9AB}-\\x{1F9AD}|\\x{1F9AE}-\\x{1F9AF}|\\x{1F9B0}-\\x{1F9B9}|\\x{1F9BA}-\\x{1F9BF}|\\x{1F9C0}|\\x{1F9C1}-\\x{1F9C2}|\\x{1F9C3}-\\x{1F9CA}|\\x{1F9CB}|\\x{1F9CC}|\\x{1F9CD}-\\x{1F9CF}|\\x{1F9D0}-\\x{1F9E6}|\\x{1F9E7}-\\x{1F9FF}|\\x{1FA70}-\\x{1FA73}|\\x{1FA74}|\\x{1FA78}-\\x{1FA7A}|\\x{1FA7B}-\\x{1FA7C}|\\x{1FA80}-\\x{1FA82}|\\x{1FA83}-\\x{1FA86}|\\x{1FA90}-\\x{1FA95}|\\x{1FA96}-\\x{1FAA8}|\\x{1FAA9}-\\x{1FAAC}|\\x{1FAB0}-\\x{1FAB6}|\\x{1FAB7}-\\x{1FABA}|\\x{1FAC0}-\\x{1FAC2}|\\x{1FAC3}-\\x{1FAC5}|\\x{1FAD0}-\\x{1FAD6}|\\x{1FAD7}-\\x{1FAD9}|\\x{1FAE0}-\\x{1FAE7}|\\x{1FAF0}-\\x{1FAF6}]([\\x{1F3FB}-\\x{1F3FF}]|\\x{FE0F}\\x{20E3}?|[\\x{E0020}-\\x{E007E}]+\\x{E007F}?)?)*/u',
+        'replacement' => '',
+        'usedefaultchatformat' => false,
+        'qqmessageformat' => '[群内消息] <%s> %s',
+        'wordlimit' => 7000 // TODO: 不解决问题
     ];
     /** @var Config */
     private $config;
@@ -125,7 +132,7 @@ class Main extends PluginBase implements Listener {
         $command->setPermission('huhobot');
         $command->setExecutor($this);
         $this->getServer()->getCommandMap()->register($this->getName(), $command);
-        $this->networkthread = new NetworkThread($this->config->get('huhobotwsserver', self::DEFAULT_CONFIG['huhobotwsserver']), $this->getServer()->getLogger(), $this->config->get('serverid', str_repeat('0', 32)), $this->config->get('hashkey', self::DEFAULT_CONFIG['hashkey']), $this->config->get('servername', self::DEFAULT_CONFIG['servername']));
+        $this->networkthread = new NetworkThread($this->config->get('huhobotwsserver', self::DEFAULT_CONFIG['huhobotwsserver']), $this->getServer()->getLogger(), $this->config->get('serverid', str_repeat('0', 32)), $this->config->get('hashkey', self::DEFAULT_CONFIG['hashkey']), $this->config->get('servername', self::DEFAULT_CONFIG['servername']), $this->config->get('platformname', self::DEFAULT_CONFIG['platformname']), $this->config->get('platformversion', self::DEFAULT_CONFIG['platformversion']));
         $this->networkthread->start();
         $this->queuereadtaskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask(new class($this) extends Task {
             protected $owner;
@@ -191,13 +198,20 @@ class Main extends PluginBase implements Listener {
                             $lines = explode("\n", $data['body']['msg']);
                             $res = [];
                             foreach($lines as $msg) {
-                                if($this->owner->getConfig()->get('removeemoji', Main::DEFAULT_CONFIG['removeemoji'])) {
-                                    $msg = Main::removeEmoji($msg);
+                                if($this->owner->getConfig()->get('enablefilter', Main::DEFAULT_CONFIG['enablefilter'])) {
+                                    $msg = preg_replace($this->owner->getConfig()->get('filter', Main::DEFAULT_CONFIG['filter']), $this->owner->getConfig()->get('replacement', Main::DEFAULT_CONFIG['replacement']), $msg);
                                 }
                                 if($msg === '') {
                                     $msg = '（空白消息）';
                                 }
-                                $msg = '[群内消息] ' . $this->owner->getServer()->getLanguage()->translateString('%chat.type.text', [$data['body']['nick'], $msg]);
+                                if($this->owner->getConfig()->get('usedefaultchatformat', Main::DEFAULT_CONFIG['usedefaultchatformat'])) {
+                                    $msg = '[群内消息] ' . $this->owner->getServer()->getLanguage()->translateString('%chat.type.text', [$data['body']['nick'], $msg]);
+                                } else {
+                                    $msg = sprintf($this->owner->getConfig()->get('qqmessageformat', Main::DEFAULT_CONFIG['qqmessageformat']), $data['body']['nick'], $msg);
+                                    if($msg === false) {
+                                        $msg = '（聊天格式配置有误）';
+                                    }
+                                }
                                 $this->owner->getServer()->broadcastMessage($msg);
                                 $res[] = $msg;
                             }
@@ -220,7 +234,7 @@ class Main extends PluginBase implements Listener {
                             $sender = new QQCommandSender();
                             $sender->setName($this->owner->getConfig()->get('commandsendername', Main::DEFAULT_CONFIG['commandsendername']));
                             $this->owner->getServer()->dispatchCommand($sender, $data['body']['cmd']); // TODO: 防恶意命令？
-                            $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => implode("\n", $sender->getAllMessages())], $data['header']['id']);
+                            $this->owner->getNetworkThread()->queuei[] = $this->owner->respone(implode("\n", $sender->getAllMessages()), $data['header']['id']);
                             break;
                         case 'run':
                         case 'runAdmin': // TODO: 提供api注册自定义命令
@@ -313,6 +327,14 @@ class Main extends PluginBase implements Listener {
         }
         $this->networkthread->queuei[] = HuHoBotClient::constructDataPacket('chat', ['msg' => $this->getServer()->getLanguage()->translateString($event->getFormat(), [$event->getPlayer()->getName(), $event->getMessage()]), 'serverId' => $this->networkthread->getServerId()]);
     }
+    public function respone(string $msg, $uuid, $success = true) { // TODO: 其它地方有字数限制吗
+        $toolong = '（消息过长）';
+        $wordlimit = $this->config->get('wordlimit', self::DEFAULT_CONFIG['wordlimit']);
+        if(mb_strlen($msg) > $wordlimit) {
+            $msg = mb_substr($msg, 0, $wordlimit - mb_strlen($toolong)) . $toolong;
+        }
+        return HuHoBotClient::constructDataPacket($success ? 'success' : 'error', ['msg' => $msg], $uuid);
+    }
     public function onCommand(CommandSender $sender, Command $command, $label, array $args) {
         if($command->getName() !== 'huhobot') {
             return;
@@ -363,24 +385,6 @@ class Main extends PluginBase implements Listener {
         $this->networkthread->quit();
         $this->networkthread = null;
     }
-    public static function removeEmoji(string $string) {
-        // https://jamesqi.com/%E5%8D%9A%E5%AE%A2/%E5%8C%B9%E9%85%8DEmoji%E7%9A%84%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F
-        $regex_regional_indicator = '\x{1F1E6}-\x{1F1FF}'; // \x{0030}-\x{0039} 数字 \x{0023}|\x{002A} 井号星号
-        $regex_emoji_character = '\x{00A9}|\x{00AE}|\x{203C}|\x{2049}|\x{2122}|\x{2139}|\x{2194}-\x{2199}|\x{21A9}-\x{21AA}|\x{231A}-\x{231B}|\x{2328}|\x{23CF}|\x{23E9}-\x{23EC}|\x{23ED}-\x{23EE}|\x{23EF}|\x{23F0}|\x{23F1}-\x{23F2}|\x{23F3}|\x{23F8}-\x{23FA}|\x{24C2}|\x{25AA}-\x{25AB}|\x{25B6}|\x{25C0}|\x{25FB}-\x{25FE}|\x{2600}-\x{2601}|\x{2602}-\x{2603}|\x{2604}|\x{260E}|\x{2611}|\x{2614}-\x{2615}|\x{2618}|\x{261D}|\x{2620}|\x{2622}-\x{2623}|\x{2626}|\x{262A}|\x{262E}|\x{262F}|\x{2638}-\x{2639}|\x{263A}|\x{2640}|\x{2642}|\x{2648}-\x{2653}|\x{265F}|\x{2660}|\x{2663}|\x{2665}-\x{2666}|\x{2668}|\x{267B}|\x{267E}|\x{267F}|\x{2692}|\x{2693}|\x{2694}|\x{2695}|\x{2696}-\x{2697}|\x{2699}|\x{269B}-\x{269C}|\x{26A0}-\x{26A1}|\x{26A7}|\x{26AA}-\x{26AB}|\x{26B0}-\x{26B1}|\x{26BD}-\x{26BE}|\x{26C4}-\x{26C5}|\x{26C8}|\x{26CE}|\x{26CF}|\x{26D1}|\x{26D3}|\x{26D4}|\x{26E9}|\x{26EA}|\x{26F0}-\x{26F1}|\x{26F2}-\x{26F3}|\x{26F4}|\x{26F5}|\x{26F7}-\x{26F9}|\x{26FA}|\x{26FD}|\x{2702}|\x{2705}|\x{2708}-\x{270C}|\x{270D}|\x{270F}|\x{2712}|\x{2714}|\x{2716}|\x{271D}|\x{2721}|\x{2728}|\x{2733}-\x{2734}|\x{2744}|\x{2747}|\x{274C}|\x{274E}|\x{2753}-\x{2755}|\x{2757}|\x{2763}|\x{2764}|\x{2795}-\x{2797}|\x{27A1}|\x{27B0}|\x{27BF}|\x{2934}-\x{2935}|\x{2B05}-\x{2B07}|\x{2B1B}-\x{2B1C}|\x{2B50}|\x{2B55}|\x{3030}|\x{303D}|\x{3297}|\x{3299}|\x{1F004}|\x{1F0CF}|\x{1F170}-\x{1F171}|\x{1F17E}-\x{1F17F}|\x{1F18E}|\x{1F191}-\x{1F19A}|\x{1F1E6}-\x{1F1FF}|\x{1F201}-\x{1F202}|\x{1F21A}|\x{1F22F}|\x{1F232}-\x{1F23A}|\x{1F250}-\x{1F251}|\x{1F300}-\x{1F30C}|\x{1F30D}-\x{1F30E}|\x{1F30F}|\x{1F310}|\x{1F311}|\x{1F312}|\x{1F313}-\x{1F315}|\x{1F316}-\x{1F318}|\x{1F319}|\x{1F31A}|\x{1F31B}|\x{1F31C}|\x{1F31D}-\x{1F31E}|\x{1F31F}-\x{1F320}|\x{1F321}|\x{1F324}-\x{1F32C}|\x{1F32D}-\x{1F32F}|\x{1F330}-\x{1F331}|\x{1F332}-\x{1F333}|\x{1F334}-\x{1F335}|\x{1F336}|\x{1F337}-\x{1F34A}|\x{1F34B}|\x{1F34C}-\x{1F34F}|\x{1F350}|\x{1F351}-\x{1F37B}|\x{1F37C}|\x{1F37D}|\x{1F37E}-\x{1F37F}|\x{1F380}-\x{1F393}|\x{1F396}-\x{1F397}|\x{1F399}-\x{1F39B}|\x{1F39E}-\x{1F39F}|\x{1F3A0}-\x{1F3C4}|\x{1F3C5}|\x{1F3C6}|\x{1F3C7}|\x{1F3C8}|\x{1F3C9}|\x{1F3CA}|\x{1F3CB}-\x{1F3CE}|\x{1F3CF}-\x{1F3D3}|\x{1F3D4}-\x{1F3DF}|\x{1F3E0}-\x{1F3E3}|\x{1F3E4}|\x{1F3E5}-\x{1F3F0}|\x{1F3F3}|\x{1F3F4}|\x{1F3F5}|\x{1F3F7}|\x{1F3F8}-\x{1F407}|\x{1F408}|\x{1F409}-\x{1F40B}|\x{1F40C}-\x{1F40E}|\x{1F40F}-\x{1F410}|\x{1F411}-\x{1F412}|\x{1F413}|\x{1F414}|\x{1F415}|\x{1F416}|\x{1F417}-\x{1F429}|\x{1F42A}|\x{1F42B}-\x{1F43E}|\x{1F43F}|\x{1F440}|\x{1F441}|\x{1F442}-\x{1F464}|\x{1F465}|\x{1F466}-\x{1F46B}|\x{1F46C}-\x{1F46D}|\x{1F46E}-\x{1F4AC}|\x{1F4AD}|\x{1F4AE}-\x{1F4B5}|\x{1F4B6}-\x{1F4B7}|\x{1F4B8}-\x{1F4EB}|\x{1F4EC}-\x{1F4ED}|\x{1F4EE}|\x{1F4EF}|\x{1F4F0}-\x{1F4F4}|\x{1F4F5}|\x{1F4F6}-\x{1F4F7}|\x{1F4F8}|\x{1F4F9}-\x{1F4FC}|\x{1F4FD}|\x{1F4FF}-\x{1F502}|\x{1F503}|\x{1F504}-\x{1F507}|\x{1F508}|\x{1F509}|\x{1F50A}-\x{1F514}|\x{1F515}|\x{1F516}-\x{1F52B}|\x{1F52C}-\x{1F52D}|\x{1F52E}-\x{1F53D}|\x{1F549}-\x{1F54A}|\x{1F54B}-\x{1F54E}|\x{1F550}-\x{1F55B}|\x{1F55C}-\x{1F567}|\x{1F56F}-\x{1F570}|\x{1F573}-\x{1F579}|\x{1F57A}|\x{1F587}|\x{1F58A}-\x{1F58D}|\x{1F590}|\x{1F595}-\x{1F596}|\x{1F5A4}|\x{1F5A5}|\x{1F5A8}|\x{1F5B1}-\x{1F5B2}|\x{1F5BC}|\x{1F5C2}-\x{1F5C4}|\x{1F5D1}-\x{1F5D3}|\x{1F5DC}-\x{1F5DE}|\x{1F5E1}|\x{1F5E3}|\x{1F5E8}|\x{1F5EF}|\x{1F5F3}|\x{1F5FA}|\x{1F5FB}-\x{1F5FF}|\x{1F600}|\x{1F601}-\x{1F606}|\x{1F607}-\x{1F608}|\x{1F609}-\x{1F60D}|\x{1F60E}|\x{1F60F}|\x{1F610}|\x{1F611}|\x{1F612}-\x{1F614}|\x{1F615}|\x{1F616}|\x{1F617}|\x{1F618}|\x{1F619}|\x{1F61A}|\x{1F61B}|\x{1F61C}-\x{1F61E}|\x{1F61F}|\x{1F620}-\x{1F625}|\x{1F626}-\x{1F627}|\x{1F628}-\x{1F62B}|\x{1F62C}|\x{1F62D}|\x{1F62E}-\x{1F62F}|\x{1F630}-\x{1F633}|\x{1F634}|\x{1F635}|\x{1F636}|\x{1F637}-\x{1F640}|\x{1F641}-\x{1F644}|\x{1F645}-\x{1F64F}|\x{1F680}|\x{1F681}-\x{1F682}|\x{1F683}-\x{1F685}|\x{1F686}|\x{1F687}|\x{1F688}|\x{1F689}|\x{1F68A}-\x{1F68B}|\x{1F68C}|\x{1F68D}|\x{1F68E}|\x{1F68F}|\x{1F690}|\x{1F691}-\x{1F693}|\x{1F694}|\x{1F695}|\x{1F696}|\x{1F697}|\x{1F698}|\x{1F699}-\x{1F69A}|\x{1F69B}-\x{1F6A1}|\x{1F6A2}|\x{1F6A3}|\x{1F6A4}-\x{1F6A5}|\x{1F6A6}|\x{1F6A7}-\x{1F6AD}|\x{1F6AE}-\x{1F6B1}|\x{1F6B2}|\x{1F6B3}-\x{1F6B5}|\x{1F6B6}|\x{1F6B7}-\x{1F6B8}|\x{1F6B9}-\x{1F6BE}|\x{1F6BF}|\x{1F6C0}|\x{1F6C1}-\x{1F6C5}|\x{1F6CB}|\x{1F6CC}|\x{1F6CD}-\x{1F6CF}|\x{1F6D0}|\x{1F6D1}-\x{1F6D2}|\x{1F6D5}|\x{1F6D6}-\x{1F6D7}|\x{1F6DD}-\x{1F6DF}|\x{1F6E0}-\x{1F6E5}|\x{1F6E9}|\x{1F6EB}-\x{1F6EC}|\x{1F6F0}|\x{1F6F3}|\x{1F6F4}-\x{1F6F6}|\x{1F6F7}-\x{1F6F8}|\x{1F6F9}|\x{1F6FA}|\x{1F6FB}-\x{1F6FC}|\x{1F7E0}-\x{1F7EB}|\x{1F7F0}|\x{1F90C}|\x{1F90D}-\x{1F90F}|\x{1F910}-\x{1F918}|\x{1F919}-\x{1F91E}|\x{1F91F}|\x{1F920}-\x{1F927}|\x{1F928}-\x{1F92F}|\x{1F930}|\x{1F931}-\x{1F932}|\x{1F933}-\x{1F93A}|\x{1F93C}-\x{1F93E}|\x{1F93F}|\x{1F940}-\x{1F945}|\x{1F947}-\x{1F94B}|\x{1F94C}|\x{1F94D}-\x{1F94F}|\x{1F950}-\x{1F95E}|\x{1F95F}-\x{1F96B}|\x{1F96C}-\x{1F970}|\x{1F971}|\x{1F972}|\x{1F973}-\x{1F976}|\x{1F977}-\x{1F978}|\x{1F979}|\x{1F97A}|\x{1F97B}|\x{1F97C}-\x{1F97F}|\x{1F980}-\x{1F984}|\x{1F985}-\x{1F991}|\x{1F992}-\x{1F997}|\x{1F998}-\x{1F9A2}|\x{1F9A3}-\x{1F9A4}|\x{1F9A5}-\x{1F9AA}|\x{1F9AB}-\x{1F9AD}|\x{1F9AE}-\x{1F9AF}|\x{1F9B0}-\x{1F9B9}|\x{1F9BA}-\x{1F9BF}|\x{1F9C0}|\x{1F9C1}-\x{1F9C2}|\x{1F9C3}-\x{1F9CA}|\x{1F9CB}|\x{1F9CC}|\x{1F9CD}-\x{1F9CF}|\x{1F9D0}-\x{1F9E6}|\x{1F9E7}-\x{1F9FF}|\x{1FA70}-\x{1FA73}|\x{1FA74}|\x{1FA78}-\x{1FA7A}|\x{1FA7B}-\x{1FA7C}|\x{1FA80}-\x{1FA82}|\x{1FA83}-\x{1FA86}|\x{1FA90}-\x{1FA95}|\x{1FA96}-\x{1FAA8}|\x{1FAA9}-\x{1FAAC}|\x{1FAB0}-\x{1FAB6}|\x{1FAB7}-\x{1FABA}|\x{1FAC0}-\x{1FAC2}|\x{1FAC3}-\x{1FAC5}|\x{1FAD0}-\x{1FAD6}|\x{1FAD7}-\x{1FAD9}|\x{1FAE0}-\x{1FAE7}|\x{1FAF0}-\x{1FAF6}';
-        $regex_emoji_modifier = '\x{1F3FB}-\x{1F3FF}';
-
-        $regex_emoji_presentation_selector = '\x{FE0F}';
-        $regex_keycap_symbol = '\x{20E3}';
-        $regex_tag_symbol = '\x{E0020}-\x{E007E}';
-        $regex_term_tag_symbol = '\x{E007F}';
-        $regex_zero_width_joiner = '\x{200D}';
-
-        $regex_emoji_flag_sequence = "[{$regex_regional_indicator}][{$regex_regional_indicator}]";
-        $regex_emoji_zwj_element = "[{$regex_emoji_character}]([{$regex_emoji_modifier}]|{$regex_emoji_presentation_selector}{$regex_keycap_symbol}?|[{$regex_tag_symbol}]+{$regex_term_tag_symbol}?)?";
-
-        $regex_emoji = "/{$regex_emoji_flag_sequence}|{$regex_emoji_zwj_element}({$regex_zero_width_joiner}{$regex_emoji_zwj_element})*/u"; // TODO: 配置
-        return preg_replace($regex_emoji, '', $string);
-    }
 }
 class NetworkThread extends Thread {
     public $queuei;
@@ -390,7 +394,9 @@ class NetworkThread extends Thread {
     private $serverid;
     private $hashkey; // hashkey是验证qq群绑定，绑定后自动创建hashkey.txt
     private $servername;
-    public function __construct(string $huhobotwsserver, ThreadedLogger $logger, string $serverid, string $hashkey, string $servername) {
+    private $platformname;
+    private $platformversion;
+    public function __construct(string $huhobotwsserver, ThreadedLogger $logger, string $serverid, string $hashkey, string $servername, string $platformname, string $platformversion) {
         $this->queueo = new Threaded();
         $this->queuei = new Threaded();
         $this->huhobotwsserver = $huhobotwsserver;
@@ -398,12 +404,14 @@ class NetworkThread extends Thread {
         $this->logger = $logger;
         $this->hashkey = $hashkey;
         $this->servername = $servername;
+        $this->platformname = $platformname;
+        $this->platformversion = $platformversion;
     }
     public function getServerId() {
         return $this->serverid;
     }
     public function run() {
-        $wsclient = new HuHoBotClient('ws://' . $this->huhobotwsserver, [], $this->logger, $this->serverid, $this->hashkey, $this->servername);
+        $wsclient = new HuHoBotClient('ws://' . $this->huhobotwsserver, [], $this->logger, $this->serverid, $this->hashkey, $this->servername, $this->platformname, $this->platformversion);
         $wsclient->setTimeout(1);
         while(true) {
             try {
@@ -453,17 +461,20 @@ class NetworkThread extends Thread {
     }
 }
 class HuHoBotClient extends Client {
-    const PLATFORM_NAME = ''; // TODO: 注册平台这个有什么用
+    protected $platformname = ''; // TODO: 注册平台这个有什么用
     protected $logger;
     protected $serverid;
     protected $hashkey;
     protected $servername;
-    public function __construct($uri, array $options = array(), ThreadedLogger $logger, string $serverid, string $hashkey, string $servername) {
+    protected $platformversion;
+    public function __construct($uri, array $options = array(), ThreadedLogger $logger, string $serverid, string $hashkey, string $servername, string $platformname, string $platformversion) {
         parent::__construct($uri, $options);
         $this->logger = $logger;
         $this->serverid = $serverid;
         $this->hashkey = $hashkey;
         $this->servername = $servername;
+        $this->platformname = $platformname;
+        $this->platformversion = $platformversion;
     }
     public function getLogger() {
         return $this->logger;
@@ -484,8 +495,8 @@ class HuHoBotClient extends Client {
             'serverId' => $this->serverid,
             'hashKey' => $this->hashkey, // bin2hex(random_bytes(32))
             'name' => $this->servername,
-            'version' => Main::$pluginversion, // 文档说可以设置dev版本
-            'platform' => self::PLATFORM_NAME
+            'version' => $this->platformversion, // 文档说可以设置dev版本
+            'platform' => $this->platformname
         ]));
         $this->logger->notice('已建立连接');
     }
