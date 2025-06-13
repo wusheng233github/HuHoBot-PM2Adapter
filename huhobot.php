@@ -68,7 +68,7 @@ use WebSocket\ConnectionException;
  * @name HuHoBot
  * @description HuHoBot PM2适配器
  * @author wusheng233
- * @version 0.0.1
+ * @version 0.1.0
  * @main wusheng233\HuHoBot\Main
  * @api 2.0.0
  * @license https://opensource.org/license/MIT MIT
@@ -115,8 +115,24 @@ class Main extends PluginBase implements Listener {
         if(!file_exists($datafolder)) {
             mkdir($datafolder);
         }
-        if(!is_dir($datafolder) || is_dir($datafolder . '/config.json')) { // TODO: 权限问题？
+        $error = false; // 重复
+        if(!is_dir($datafolder)) {
             $this->getLogger()->error('数据文件夹错误');
+            $error = true;
+        }
+        if(!is_readable($datafolder . '/config.json')) {
+            $this->getLogger()->error('配置文件没有读取权限');
+            $error = true;
+        }
+        if(!is_writable($datafolder . '/config.json')) {
+            $this->getLogger()->error('配置文件没有写入权限');
+            $error = true;
+        }
+        if(!is_file($datafolder . '/config.json')) {
+            $this->getLogger()->error('配置文件不是文件');
+            $error = true;
+        }
+        if($error) {
             $this->getServer()->getPluginManager()->disablePlugin($this);
             return false;
         }
@@ -284,7 +300,7 @@ class Main extends PluginBase implements Listener {
     }
 }
 class NetworkThread extends Thread {
-    public $queuei;
+    public $queuei; // TODO: 不要毁了队列
     public $queueo;
     private $huhobotwsserver;
     private $logger;
