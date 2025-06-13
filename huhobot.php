@@ -161,7 +161,7 @@ class Main extends PluginBase implements Listener {
         }
     }
     public function connect(string $host) {
-        if($this->isConnect()) {
+        if($this->isConnected()) {
             return false;
         }
         $this->networkthread = new NetworkThread($host, $this->getServer()->getLogger(), $this->config->get('serverid', str_repeat('0', 32)), $this->config->get('hashkey', self::DEFAULT_CONFIG['hashkey']), $this->config->get('servername', self::DEFAULT_CONFIG['servername']), $this->config->get('platformname', self::DEFAULT_CONFIG['platformname']), $this->config->get('platformversion', self::DEFAULT_CONFIG['platformversion']));
@@ -170,7 +170,7 @@ class Main extends PluginBase implements Listener {
         $this->queuereadtaskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask($this->queuereadtask = new QueueReadTask($this), $this->config->get('readperiod', self::DEFAULT_CONFIG['readperiod']));
         return true;
     }
-    public function isConnect() {
+    public function isConnected() {
         return $this->networkthread !== null && $this->queuereadtask !== null && $this->queuereadtaskhandler !== null;
     }
     /**
@@ -285,7 +285,7 @@ class Main extends PluginBase implements Listener {
         return $this->queuereadtaskhandler;
     }
     public function shutdown() {
-        if(!$this->isConnect()) {
+        if(!$this->isConnected()) {
             return false;
         }
         $this->queuereadtask->quit();
