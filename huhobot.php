@@ -118,7 +118,13 @@ class Main extends PluginBase implements Listener {
         $error = false; // 重复
         if(!is_dir($datafolder)) {
             $this->getLogger()->error('数据文件夹错误');
-            $error = true;
+            $this->getServer()->getPluginManager()->disablePlugin($this);
+            return false;
+        }
+        $this->config = new Config($this->getDataFolder() . '/config.json', Config::JSON, self::DEFAULT_CONFIG);
+        if(!$this->config->exists('serverid')) {
+            $this->config->set('serverid', bin2hex(random_bytes(16)));
+            $this->config->save();
         }
         if(!is_readable($datafolder . '/config.json')) {
             $this->getLogger()->error('配置文件没有读取权限');
@@ -135,11 +141,6 @@ class Main extends PluginBase implements Listener {
         if($error) {
             $this->getServer()->getPluginManager()->disablePlugin($this);
             return false;
-        }
-        $this->config = new Config($this->getDataFolder() . '/config.json', Config::JSON, self::DEFAULT_CONFIG);
-        if(!$this->config->exists('serverid')) {
-            $this->config->set('serverid', bin2hex(random_bytes(16)));
-            $this->config->save();
         }
         $root = new Permission('huhobot', '允许控制HuHoBot插件', Permission::DEFAULT_OP);
         DefaultPermissions::registerPermission($root); // TODO: 不要重复注册权限
