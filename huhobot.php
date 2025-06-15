@@ -72,6 +72,7 @@ use WebSocket\ConnectionException;
  * @main wusheng233\HuHoBot\Main
  * @api 2.0.0
  * @license https://opensource.org/license/MIT MIT
+ * @website https://github.com/wusheng233github/HuHoBot-PM2Adapter
  */
 class Main extends PluginBase implements Listener {
     const DEFAULT_CONFIG = [
