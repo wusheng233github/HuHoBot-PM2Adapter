@@ -75,8 +75,8 @@ use WebSocket\ConnectionException;
  * @website https://github.com/wusheng233github/HuHoBot-PM2Adapter
  */
 class Main extends PluginBase implements Listener {
-    const DEFAULT_CONFIG = [
-        'huhobotwsserver' => '119.91.100.129:8888', // TODO: 格式验证、清理
+    const DEFAULT_CONFIG = [ // 提交记录
+        'huhobotwsserver' => '', // TODO: 格式验证、清理
         'hashkey' => '',
         'servername' => '',
         'enablefilter' => true,
@@ -137,6 +137,10 @@ class Main extends PluginBase implements Listener {
         }
         if(!is_file($datafolder . '/config.json')) {
             $this->getLogger()->error('配置文件不是文件');
+            $error = true;
+        }
+        if($this->config->get('huhobotwsserver', '') === '') {
+            $this->getLogger()->error('未配置后台地址，请配置config.json中huhobotwsserver，不带ws://');
             $error = true;
         }
         if($error) {
