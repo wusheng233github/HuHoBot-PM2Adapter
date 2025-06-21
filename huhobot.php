@@ -140,12 +140,15 @@ class Main extends PluginBase implements Listener {
             $error = true;
         }
         if($this->config->get('huhobotwsserver', '') === '') {
-            $this->getLogger()->error('未配置后台地址，请配置config.json中huhobotwsserver，不带ws://');
+            $this->getLogger()->error('未配置后台地址，请配置config.json中huhobotwsserver，带wss://');
             $error = true;
         }
         if($error) {
             $this->getServer()->getPluginManager()->disablePlugin($this);
             return false;
+        }
+        if(!extension_loaded('openssl')) {
+            $this->getLogger()->warning('需要openssl扩展才能使用WebSocket Secure连接');
         }
         $root = new Permission('huhobot', '允许控制HuHoBot插件', Permission::DEFAULT_OP);
         DefaultPermissions::registerPermission($root); // TODO: 不要重复注册权限
@@ -330,7 +333,7 @@ class NetworkThread extends Thread {
         return $this->serverid;
     }
     public function run() {
-        $wsclient = new HuHoBotClient('ws://' . $this->huhobotwsserver, [], $this->logger, $this->serverid, $this->hashkey, $this->servername, $this->platformname, $this->platformversion);
+        $wsclient = new HuHoBotClient($this->huhobotwsserver, [], $this->logger, $this->serverid, $this->hashkey, $this->servername, $this->platformname, $this->platformversion);
         $wsclient->setTimeout(1);
         while(true) {
             try {
