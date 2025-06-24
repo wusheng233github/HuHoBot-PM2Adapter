@@ -386,6 +386,7 @@ class QueueReadTask extends Task {
     protected $owner;
     protected $lastping = false;
     protected $lastpong = false;
+    protected $handshaked = false; // 这个不行
     public function __construct(Main $owner) {
         $this->owner = $owner;
     }
@@ -395,6 +396,7 @@ class QueueReadTask extends Task {
             $event = new DataPacketReceiveEvent($data);
             $this->owner->getServer()->getPluginManager()->callEvent($event);
             if($event->isCancelled()) {
+                unset($this->owner->getNetworkThread()->queueo[$key]);
                 continue;
             }
             $pktype = $data['header']['type'];
@@ -414,10 +416,12 @@ class QueueReadTask extends Task {
                     switch($data['body']['code']) {
                         case 1:
                             $this->owner->getLogger()->info('握手成功');
+                            $this->handshaked = true;
                             break;
                         case 2:
-                            $this->owner->getLogger()->notice('握手成功，附带一条消息:');
+                            $this->owner->getLogger()->notice('握手成功:');
                             $this->owner->getLogger()->notice($data['body']['msg']);
+                            $this->handshaked = true;
                             break;
                         case 3:
                             $this->owner->getLogger()->warning('绑定密钥信息不匹配');
@@ -541,6 +545,9 @@ class QueueReadTask extends Task {
             }
             unset($this->owner->getNetworkThread()->queueo[$key]);
             $this->lastpong = time();
+        }
+        if(!$this->handshaked) {
+            return;
         }
         $time = time();
         if($this->lastping !== false && $this->lastpong < $this->lastping - 15) {
