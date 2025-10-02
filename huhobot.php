@@ -68,7 +68,7 @@ use WebSocket\ConnectionException;
  * @name HuHoBot
  * @description HuHoBot PM2适配器
  * @author wusheng233
- * @version 0.1.0
+ * @version 0.1.1
  * @main wusheng233\HuHoBot\Main
  * @api 2.0.0
  * @license https://opensource.org/license/MIT MIT
