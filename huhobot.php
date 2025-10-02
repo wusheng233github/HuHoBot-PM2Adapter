@@ -546,9 +546,6 @@ class QueueReadTask extends Task {
             unset($this->owner->getNetworkThread()->queueo[$key]);
             $this->lastpong = time();
         }
-        if(!$this->handshaked) {
-            return;
-        }
         $time = time();
         if($this->lastping !== false && $this->lastpong < $this->lastping - 15) {
             $this->owner->getLogger()->warning('连接断开？pong已超时');
