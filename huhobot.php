@@ -75,7 +75,7 @@ class Main extends PluginBase implements Listener {
         'huhobotwsserver' => '', // TODO: 格式验证、清理
         'hashkey' => '',
         'servername' => '',
-        'enablefilter' => true,
+        'enablefilter' => false,
         'chatforwarding' => true,
         'whitelistitemsperpage' => 10,
         'pingperiod' => 10,
@@ -89,11 +89,12 @@ class Main extends PluginBase implements Listener {
         'commandsendername' => 'QQ Console',
         'platformname' => '',
         'platformversion' => 'dev',
-        'filter' => '/[\x{D800}-\x{F8FF}\x{10000}-\x{10FFFF}]/u',
+        'filter' => '/(?!)/',
         'replacement' => '',
         'usedefaultchatformat' => false,
         'qqmessageformat' => '[群内消息] <%s> %s',
-        'wordlimit' => 7000 // TODO: 没有解决问题
+        'wordlimit' => 7000, // TODO: 没有解决问题
+        'filterinvalidchars' => true
     ];
     /** @var Config */
     private $config;
@@ -385,6 +386,7 @@ class QueueReadTask extends Task {
     }
     public function onRun($currentTick) {
         foreach($this->owner->getNetworkThread()->queueo as $key => $data) {
+            unset($this->owner->getNetworkThread()->queueo[$key]);
             $data = unserialize($data);
             $event = new DataPacketReceiveEvent($data);
             $this->owner->getServer()->getPluginManager()->callEvent($event);
@@ -443,8 +445,15 @@ class QueueReadTask extends Task {
                     $lines = explode("\n", $data['body']['msg']);
                     $res = [];
                     foreach($lines as $msg) {
+                        // Warning: preg_replace(): Compilation failed: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
                         if($this->owner->getConfig()->get('enablefilter', Main::DEFAULT_CONFIG['enablefilter'])) {
                             $msg = preg_replace($this->owner->getConfig()->get('filter', Main::DEFAULT_CONFIG['filter']), $this->owner->getConfig()->get('replacement', Main::DEFAULT_CONFIG['replacement']), $msg);
+                        }
+                        if($msg === null) {
+                            $msg = '（错误）';
+                        }
+                        if($this->owner->getConfig()->get('filterinvalidchars', Main::DEFAULT_CONFIG['enablefilter'])) {
+                            $msg = self::filterInvalidChars($msg);
                         }
                         if($msg === '') {
                             $msg = '（空白消息）';
@@ -478,7 +487,7 @@ class QueueReadTask extends Task {
                 case 'cmd':
                     $sender = new QQCommandSender();
                     $sender->setName($this->owner->getConfig()->get('commandsendername', Main::DEFAULT_CONFIG['commandsendername']));
-                    $this->owner->getServer()->dispatchCommand($sender, $data['body']['cmd']); // TODO: 防恶意命令？
+                    $this->owner->getServer()->dispatchCommand($sender, $data['body']['cmd']);
                     $this->owner->getNetworkThread()->queuei[] = $this->owner->respone(implode("\n", $sender->getAllMessages()), $data['header']['id']);
                     break;
                 case 'run':
@@ -486,7 +495,7 @@ class QueueReadTask extends Task {
                     $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => '未实现'], $data['header']['id']);
                     break;
                 case 'add':
-                    $this->owner->getServer()->addWhitelist($data['body']['xboxid']); // TODO: 需要验证玩家是否存在？
+                    $this->owner->getServer()->addWhitelist($data['body']['xboxid']);
                     $this->owner->getNetworkThread()->queuei[] = HuHoBotClient::constructDataPacket('success', ['msg' => '已尝试添加白名单: ' . $data['body']['xboxid']], $data['header']['id']);
                     break;
                 case 'delete':
@@ -532,7 +541,6 @@ class QueueReadTask extends Task {
                     $this->owner->getLogger()->debug('未实现: ' . json_encode($data, JSON_UNESCAPED_UNICODE));
                     break;
             }
-            unset($this->owner->getNetworkThread()->queueo[$key]);
             $this->lastpong = time();
         }
         $time = time();
@@ -563,6 +571,46 @@ class QueueReadTask extends Task {
     }
     public function getLastPong() {
         return $this->lastpong;
+    }
+    public static function mb_str_split(string $string, int $length = 1, $encoding = null) {
+        $array = [];
+        $offset = 0;
+        $processed = 0;
+        $strlen = strlen($string);
+        while($processed < $strlen) {
+            if($encoding !== null) {
+                $char = mb_substr($string, $offset, $length, $encoding);
+            } else {
+                $char = mb_substr($string, $offset, $length);
+            }
+            $array[] = $char;
+            $processed += strlen($char);
+            $offset += $length;
+        }
+        return $array;
+    }
+    public static function mb_ord(string $string, string $encoding = null) {
+        if($encoding !== null) { // Warning: mb_convert_encoding(): Illegal character encoding specified
+            $utf32 = mb_convert_encoding($string, 'UTF-32BE', $encoding);
+        } else {
+            $utf32 = mb_convert_encoding($string, 'UTF-32BE');
+        }
+        if($utf32 === false) {
+            return false;
+        }
+        return unpack('N', $utf32)[1];
+    }
+    public static function filterInvalidChars(string $string) {
+        $result = '';
+        foreach(self::mb_str_split($string) as $char) {
+            $code = self::mb_ord($char);
+            if($code < 0xD800 || $code > 0xDFFF) {
+                if(!(($code >= 0xE000 && $code <= 0xF8FF) || ($code >= 0x10000 && $code <= 0x10FFFF))) {
+                    $result .= $char;
+                }
+            }
+        }
+        return $result;
     }
 }
 class HuHoBotClient extends Client {
