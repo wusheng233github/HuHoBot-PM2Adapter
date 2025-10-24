@@ -62,7 +62,7 @@ use WebSocket\ConnectionException;
  * @name HuHoBot
  * @description HuHoBot PM2适配器
  * @author wusheng233
- * @version 0.2.1
+ * @version 0.2.2
  * @main wusheng233\HuHoBot\Main
  * @api 2.0.0
  * @geniapi 1.7.3
@@ -410,14 +410,10 @@ class QueueReadTask extends Task {
                 case 'shaked':
                     switch($data['body']['code']) {
                         case 1:
+                        case 2:
                             $this->owner->getLogger()->info('握手成功');
                             $this->handshaked = true;
-                            break 2;
-                        case 2:
-                            $this->owner->getLogger()->notice('握手成功:');
-                            $this->owner->getLogger()->notice($data['body']['msg']);
-                            $this->handshaked = true;
-                            break 2;
+                            break;
                         case 3:
                             $this->owner->getLogger()->warning('绑定密钥信息不匹配');
                             break;
@@ -429,7 +425,7 @@ class QueueReadTask extends Task {
                             break;
                         case 6:
                             $this->owner->getLogger()->notice('等待绑定');
-                            break 2;
+                            break;
                         case 7:
                             $this->owner->getLogger()->warning('IP被封');
                             break;
@@ -440,7 +436,12 @@ class QueueReadTask extends Task {
                             $this->owner->getLogger()->warning('Code: ' . $data['body']['code'] . ' Message: ' . $data['body']['msg']);
                             break;
                     }
-                    $this->quit();
+                    if($data['body']['msg'] != '') {
+                        $this->owner->getLogger()->notice($data['body']['msg']);
+                    }
+                    if(!$this->handshaked) {
+                        $this->quit();
+                    }
                     break;
                 case 'chat':
                     $lines = explode("\n", $data['body']['msg']);
