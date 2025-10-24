@@ -62,7 +62,7 @@ use WebSocket\ConnectionException;
  * @name HuHoBot
  * @description HuHoBot PM2适配器
  * @author wusheng233
- * @version 0.2.0
+ * @version 0.2.1
  * @main wusheng233\HuHoBot\Main
  * @api 2.0.0
  * @geniapi 1.7.3
@@ -385,13 +385,13 @@ class QueueReadTask extends Task {
         $this->owner = $owner;
     }
     public function onRun($currentTick) {
-        foreach($this->owner->getNetworkThread()->queueo as $key => $data) {
-            unset($this->owner->getNetworkThread()->queueo[$key]);
+        $networkTherad = $this->owner->getNetworkThread();
+        foreach($networkTherad->queueo as $key => $data) {
+            unset($networkTherad->queueo[$key]);
             $data = unserialize($data);
             $event = new DataPacketReceiveEvent($data);
             $this->owner->getServer()->getPluginManager()->callEvent($event);
             if($event->isCancelled()) {
-                unset($this->owner->getNetworkThread()->queueo[$key]);
                 continue;
             }
             $pktype = $data['header']['type'];
@@ -412,12 +412,12 @@ class QueueReadTask extends Task {
                         case 1:
                             $this->owner->getLogger()->info('握手成功');
                             $this->handshaked = true;
-                            break;
+                            break 2;
                         case 2:
                             $this->owner->getLogger()->notice('握手成功:');
                             $this->owner->getLogger()->notice($data['body']['msg']);
                             $this->handshaked = true;
-                            break;
+                            break 2;
                         case 3:
                             $this->owner->getLogger()->warning('绑定密钥信息不匹配');
                             break;
@@ -429,8 +429,8 @@ class QueueReadTask extends Task {
                             break;
                         case 6:
                             $this->owner->getLogger()->notice('等待绑定');
-                            break;
-                        case 7: // TODO: 处理握手失败
+                            break 2;
+                        case 7:
                             $this->owner->getLogger()->warning('IP被封');
                             break;
                         case 8:
@@ -440,6 +440,7 @@ class QueueReadTask extends Task {
                             $this->owner->getLogger()->warning('Code: ' . $data['body']['code'] . ' Message: ' . $data['body']['msg']);
                             break;
                     }
+                    $this->quit();
                     break;
                 case 'chat':
                     $lines = explode("\n", $data['body']['msg']);
