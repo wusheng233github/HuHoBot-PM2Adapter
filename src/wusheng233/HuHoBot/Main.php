@@ -45,9 +45,9 @@ class Main extends PluginBase implements Listener {
     /** @var NetworkThread */
     private $networkthread;
     /** @var \pocketmine\scheduler\TaskHandler */
-    private $queuereadtaskhandler;
-    /** @var QueueReadTask */
-    private $queuereadtask;
+    private $taskhandler;
+    /** @var EventHandleTask */
+    private $eventHandleTask;
     private $bindrequests = [];
     public $lastqqchat = 0; // int
     protected $handshakeConfig;
@@ -118,11 +118,11 @@ class Main extends PluginBase implements Listener {
         $this->networkthread = new NetworkThread($host, $this->getServer()->getLogger());
         $this->networkthread->start();
         $this->getLogger()->debug('正常启动');
-        $this->queuereadtaskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask($this->queuereadtask = new QueueReadTask($this), $this->config->get('readperiod'));
+        $this->taskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask($this->eventHandleTask = new EventHandleTask($this), $this->config->get('readperiod'));
         return true;
     }
     public function isConnected() {
-        return $this->networkthread !== null && $this->queuereadtask !== null && $this->queuereadtaskhandler !== null;
+        return $this->networkthread !== null && $this->eventHandleTask !== null && $this->taskhandler !== null;
     }
     /**
      * @priority MONITOR
@@ -230,17 +230,17 @@ class Main extends PluginBase implements Listener {
         return $this->networkthread;
     }
     public function getTaskHandler() {
-        return $this->queuereadtaskhandler;
+        return $this->taskhandler;
     }
     public function shutdown() {
         if(!$this->isConnected()) {
             return false;
         }
-        $this->queuereadtask->quit();
+        $this->eventHandleTask->quit();
         $this->networkthread->quit(); // $this->networkthread->join()
         $this->networkthread = null;
-        $this->queuereadtask = null;
-        $this->queuereadtaskhandler = null;
+        $this->eventHandleTask = null;
+        $this->taskhandler = null;
         return true;
     }
     public function onDisable() {

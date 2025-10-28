@@ -1,5 +1,5 @@
 <?php
-namespace wusheng233\HuHoBot;
+namespace wusheng233\HuHoBot\utils;
 
 use pocketmine\command\ConsoleCommandSender;
 use pocketmine\event\TextContainer;

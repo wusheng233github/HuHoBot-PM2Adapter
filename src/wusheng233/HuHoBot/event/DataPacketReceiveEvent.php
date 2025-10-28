@@ -1,5 +1,5 @@
 <?php
-namespace wusheng233\HuHoBot;
+namespace wusheng233\HuHoBot\event;
 
 use pocketmine\event\Cancellable;
 use pocketmine\event\Event;

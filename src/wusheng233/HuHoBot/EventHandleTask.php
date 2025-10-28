@@ -2,8 +2,10 @@
 namespace wusheng233\HuHoBot;
 
 use pocketmine\scheduler\Task;
+use wusheng233\HuHoBot\event\DataPacketReceiveEvent;
+use wusheng233\HuHoBot\utils\QQCommandSender;
 
-class QueueReadTask extends Task {
+class EventHandleTask extends Task {
     const STATUS_DISCONNECTED = 0;
     const STATUS_CONNECTED = 1;
     const STATUS_HANDSHAKED = 2;
