@@ -6,7 +6,7 @@ use pocketmine\event\TextContainer;
 
 class QQCommandSender extends ConsoleCommandSender {
     protected $msg = [];
-    protected $name = 'QQ Console';
+    protected $name = "QQ Console";
     public function getName() : string { // scaxe 2.9b3
         return $this->name;
     }

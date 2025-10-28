@@ -27,43 +27,43 @@ class NetworkThread extends Thread {
             try {
                 $decoded = $this->readToNetworkThread();
                 if($decoded !== null) {
-                    if($decoded['header']['type'] === 'NetworkThread.shutdown') {
+                    if($decoded["header"]["type"] === "NetworkThread.shutdown") {
                         break;
                     }
 
                     $encoded = json_encode($decoded, JSON_UNESCAPED_UNICODE);
                     if($encoded === false) {
-                        $this->logger->warning('无法编码JSON: ' . json_last_error() . ' ' . json_last_error_msg() . ' ' . serialize($decoded));
+                        $this->logger->warning("无法编码JSON: " . json_last_error() . " " . json_last_error_msg() . " " . serialize($decoded));
                     } else {
                         $wsclient->send($encoded);
                     }
                 }
 
-                if($wsclient->getLastOpcode() == 'close') {
+                if($wsclient->getLastOpcode() == "close") {
                     // TODO: 限制重连次数
                 }
 
                 $data = $wsclient->receive();
-                if($wsclient->getLastOpcode() != 'text') {
+                if($wsclient->getLastOpcode() != "text") {
                     continue;
                 }
 
                 $data = json_decode($data, true);
                 if($data === null) {
-                    $this->logger->warning('JSON解码错误: ' . json_last_error() . ' ' . json_last_error_msg() . ' ' . $data);
+                    $this->logger->warning("JSON解码错误: " . json_last_error() . " " . json_last_error_msg() . " " . $data);
                     continue;
                 }
 
-                $this->pushToMainThread($data['header']['type'], $data['body'], $data['header']['id']);
+                $this->pushToMainThread($data["header"]["type"], $data["body"], $data["header"]["id"]);
 
-                if($data['header']['type'] === 'shutdown') {
-                    $this->logger->warning('远程服务器要求关闭连接，原因如下:');
-                    $this->logger->warning($data['body']['msg']);
+                if($data["header"]["type"] === "shutdown") {
+                    $this->logger->warning("远程服务器要求关闭连接，原因如下:");
+                    $this->logger->warning($data["body"]["msg"]);
                     break;
                 }
             } catch(ConnectionException $e) {
                 $socket = $wsclient->getSocket();
-                if($socket !== false && stream_get_meta_data($socket)['timed_out'] == true) {
+                if($socket !== false && stream_get_meta_data($socket)["timed_out"] == true) {
                     continue;
                 }
                 $this->logger->logException($e); // 这里不做心跳
@@ -75,8 +75,8 @@ class NetworkThread extends Thread {
         } catch(ConnectionException $e) {
             $this->logger->logException($e);
         }
-        $this->logger->info('已退出循环');
-        $this->pushToMainThread('shutdown', ['msg' => '']);
+        $this->logger->info("已退出循环");
+        $this->pushToMainThread("shutdown", ["msg" => ""]);
     }
     public function sendMessage(string $type, array $body, $uuid = null) {
         $this->queuei[] = serialize(HuHoBotClient::constructDataPacket($type, $body, $uuid));
@@ -99,7 +99,7 @@ class NetworkThread extends Thread {
         }
         $decoded = unserialize($input);
         if($decoded === null) {
-            $this->logger->warning('无法反序列化' . $input);
+            $this->logger->warning("无法反序列化" . $input);
             return null;
         }
         return $decoded;

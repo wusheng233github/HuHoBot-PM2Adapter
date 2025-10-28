@@ -23,27 +23,27 @@ class HuHoBotClient extends Client {
     }
     public static function constructDataPacket(string $type, array $body, $uuid = null) {
         return [
-            'header' => [
-                'type' => (string) $type,
-                'id' => $uuid === null ? bin2hex(UUID::fromRandom()->toBinary()) : ($uuid instanceof UUID ? bin2hex($uuid->toBinary()) : $uuid)
+            "header" => [
+                "type" => (string) $type,
+                "id" => $uuid === null ? bin2hex(UUID::fromRandom()->toBinary()) : ($uuid instanceof UUID ? bin2hex($uuid->toBinary()) : $uuid)
             ],
-            'body' => (array) $body
+            "body" => (array) $body
         ];
     }
     public function connect() {
         parent::connect();
-        $this->logger->info('已建立连接');
+        $this->logger->info("已建立连接");
         if($this->onConnected !== null) {
             call_user_func($this->onConnected);
         }
     }
-    public function send($payload, $opcode = 'text', $masked = true) {
-        $this->logger->debug('[将发送] ' . $payload);
+    public function send($payload, $opcode = "text", $masked = true) {
+        $this->logger->debug("[将发送] " . $payload);
         parent::send($payload, $opcode, $masked);
     }
     public function receive() {
         $data = parent::receive();
-        $this->logger->debug('[接收到] ' . $data);
+        $this->logger->debug("[接收到] " . $data);
         return $data;
     }
     public function getSocket() {
