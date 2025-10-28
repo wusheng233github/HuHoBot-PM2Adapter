@@ -1,0 +1,9 @@
+name: HuHoBotPM2Adapter
+description: HuHoBot PM2适配器
+author: wusheng233
+version: 0.3.1
+main: wusheng233\HuHoBot\Main
+api: 2.0.0
+geniapi: 1.7.3
+ScaxeAPI: 1.7.3
+website: https://github.com/wusheng233github/HuHoBot-PM2Adapter
