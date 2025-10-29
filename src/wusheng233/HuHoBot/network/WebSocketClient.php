@@ -129,7 +129,7 @@ class WebSocketClient {
         return $this->status === self::STATUS_HANDSHAKED;
     }
     public function isClosing() {
-        return $this->status === self::STATUS_HANDSHAKED;
+        return $this->status === self::STATUS_CLOSING;
     }
     protected function handshake() {
         $this->send(new HttpMessage([
@@ -185,10 +185,11 @@ class WebSocketClient {
                 $this->eventListener->onBinaryMessage($frame->getPayload());
                 break;
             case WebSocketFrame::OPCODE_CONNECTION_CLOSE:
-                if(!$this->isClosing()) {
-                    $this->close($frame->getPayload(), null);
+                if($this->isClosing()) {
+                    break;
                 }
-                $this->closed();
+                $this->status = self::STATUS_CLOSING;
+                $this->close($frame->getPayload(), null);
                 break;
             case WebSocketFrame::OPCODE_PING:
                 $this->send(new WebSocketFrame(WebSocketFrame::OPCODE_PONG, $frame->getPayload()));
@@ -238,10 +239,6 @@ class WebSocketClient {
         }
         $this->buffer .= $data;
     }
-    protected function closed() {
-        $this->status = self::STATUS_CLOSED;
-        $this->eventListener->onClosed(); // 只能调用一次
-    }
     public function close($payload = "", $status = 1000) {
         if($this->socket) {
             if($this->isHandshaked()) {
@@ -256,7 +253,8 @@ class WebSocketClient {
             }
             fclose($this->socket);
             $this->socket = null;
-            $this->status = self::STATUS_CLOSING;
+            $this->status = self::STATUS_CLOSED;
+            $this->eventListener->onClosed(); // 只能调用一次
         }
         $this->context = null;
         $this->lastErrorCode = null;
