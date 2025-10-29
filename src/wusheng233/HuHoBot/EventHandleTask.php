@@ -101,6 +101,7 @@ class EventHandleTask extends Task implements EventListener {
                         break;
                     case 6:
                         $this->owner->getLogger()->notice("等待绑定");
+                        $this->status = self::STATUS_HANDSHAKED;
                         break;
                     case 7:
                         $this->owner->getLogger()->warning("IP被封");
