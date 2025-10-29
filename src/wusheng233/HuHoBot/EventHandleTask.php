@@ -287,7 +287,7 @@ class EventHandleTask extends Task implements EventListener {
         $this->status = self::STATUS_CONNECTED;
         $this->owner->getLogger()->info("WebSocket握手成功");
     }
-    public function onDisconnected() {
+    public function onClosed() {
         $this->cancel();
     }
     public function onMessage(string $message) {

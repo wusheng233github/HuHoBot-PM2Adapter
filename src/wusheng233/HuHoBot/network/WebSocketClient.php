@@ -4,11 +4,12 @@ namespace wusheng233\HuHoBot\network;
 use ILogger;
 
 class WebSocketClient {
-    const STATUS_DISCONNECTED = 0;
+    const STATUS_CLOSED = 0;
     const STATUS_CONNECTING = 1;
     const STATUS_CONNECTED = 2;
     const STATUS_HANDSHAKEING = 3;
     const STATUS_HANDSHAKED = 4;
+    const STATUS_CLOSING = 5;
     //const STATUS_HANDSHAKE_FAILED = 3;errcode
     protected $host;
     protected $path;
@@ -72,7 +73,7 @@ class WebSocketClient {
         $this->eventListener = $eventListener;
     }
     public function onRun() {
-        if($this->isDisconnected()) {
+        if($this->isClosed()) {
             return;
         }
         $read = [$this->socket];
@@ -118,13 +119,16 @@ class WebSocketClient {
     public function isConnecting() {
         return $this->status === self::STATUS_CONNECTING;
     }
-    public function isDisconnected() {
-        return $this->status === self::STATUS_DISCONNECTED;
+    public function isClosed() {
+        return $this->status === self::STATUS_CLOSED;
     }
     public function isHandshakeing() {
         return $this->status === self::STATUS_HANDSHAKEING;
     }
     public function isHandshaked() {
+        return $this->status === self::STATUS_HANDSHAKED;
+    }
+    public function isClosing() {
         return $this->status === self::STATUS_HANDSHAKED;
     }
     protected function handshake() {
@@ -181,7 +185,10 @@ class WebSocketClient {
                 $this->eventListener->onBinaryMessage($frame->getPayload());
                 break;
             case WebSocketFrame::OPCODE_CONNECTION_CLOSE:
-                $this->close($frame->getPayload());
+                if(!$this->isClosing()) {
+                    $this->close($frame->getPayload(), null);
+                }
+                $this->closed();
                 break;
             case WebSocketFrame::OPCODE_PING:
                 $this->send(new WebSocketFrame(WebSocketFrame::OPCODE_PONG, $frame->getPayload()));
@@ -193,6 +200,9 @@ class WebSocketClient {
         }
     }
     protected function sendRaw($data) {
+        if(!isset($this->socket)) {
+            return;
+        }
         // Writing to a network stream may end before the whole string is written. Return value of fwrite() may be checked
         $length = strlen($data);
         for($written = 0;$written < $length;$written += $fwrite) {
@@ -218,6 +228,7 @@ class WebSocketClient {
     }
     protected function receive() {
         if(feof($this->socket)) {
+            $this->close();
             throw new SocketException("EOF");
         }
         $data = fread($this->socket, 2048); // ...
@@ -227,9 +238,16 @@ class WebSocketClient {
         }
         $this->buffer .= $data;
     }
-    public function close($payload = "") {
+    protected function closed() {
+        $this->status = self::STATUS_CLOSED;
+        $this->eventListener->onClosed(); // 只能调用一次
+    }
+    public function close($payload = "", $status = 1000) {
         if($this->socket) {
             if($this->isHandshaked()) {
+                if($status !== null) {
+                    $payload = pack("n", $status) . $payload; // ?
+                }
                 try {
                     $this->send(new WebSocketFrame(WebSocketFrame::OPCODE_CONNECTION_CLOSE, $payload));
                 } catch(SocketException $e) {
@@ -238,8 +256,7 @@ class WebSocketClient {
             }
             fclose($this->socket);
             $this->socket = null;
-            $this->status = self::STATUS_DISCONNECTED;
-            $this->eventListener->onDisconnected(); // 只能调用一次
+            $this->status = self::STATUS_CLOSING;
         }
         $this->context = null;
         $this->lastErrorCode = null;
