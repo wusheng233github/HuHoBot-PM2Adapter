@@ -2,10 +2,14 @@
 namespace wusheng233\HuHoBot;
 
 use pocketmine\scheduler\Task;
+use pocketmine\utils\UUID;
 use wusheng233\HuHoBot\event\DataPacketReceiveEvent;
+use wusheng233\HuHoBot\network\EventListener;
+use wusheng233\HuHoBot\network\WebSocketClient;
+use wusheng233\HuHoBot\network\WebSocketFrame;
 use wusheng233\HuHoBot\utils\QQCommandSender;
 
-class EventHandleTask extends Task {
+class EventHandleTask extends Task implements EventListener {
     const STATUS_DISCONNECTED = 0;
     const STATUS_CONNECTED = 1;
     const STATUS_HANDSHAKED = 2;
@@ -15,67 +19,54 @@ class EventHandleTask extends Task {
     protected $lastping = false;
     protected $lastpong = false;
     protected $status = self::STATUS_DISCONNECTED;
-    public function __construct(Main $owner) {
+    protected $client;
+    public function __construct(Main $owner, string $host) {
         $this->owner = $owner;
+        $this->client = new WebSocketClient($host, $this);
     }
     public function isConnected() {
-        return $this->status === self::STATUS_CONNECTED || $this->isHandshaked();
+        return $this->client->isConnected();
     }
     public function isHandshaked() {
         return $this->status === self::STATUS_HANDSHAKED;
     }
-    public function onRun($currentTick) {
-        $networkTherad = $this->owner->getNetworkThread();
-        foreach($networkTherad->readToMainThread() as $data) {
-            $event = new DataPacketReceiveEvent($data);
-            $this->owner->getServer()->getPluginManager()->callEvent($event);
-            if($event->isCancelled()) {
-                continue;
-            }
-            if($this->isConnected()) {
-                $this->handlePacket($data);
-                $this->lastpong = time();
-            } else {
-                $this->handleUnconnectedPacket($data);
-            }
+    public function sendMessage(string $type, array $body, $uuid = null) {
+        $array = [
+            "header" => [
+                "type" => (string) $type,
+                "id" => $uuid === null ? bin2hex(UUID::fromRandom()->toBinary()) : ($uuid instanceof UUID ? bin2hex($uuid->toBinary()) : $uuid)
+            ],
+            "body" => (array) $body
+        ];
+        $encoded = json_encode($array, JSON_UNESCAPED_UNICODE);
+        if($encoded === false) {
+            $this->owner->getLogger()->warning("无法编码JSON: " . json_last_error() . " " . json_last_error_msg() . " " . serialize($array));
+        } else {
+            $this->client->send(new WebSocketFrame(WebSocketFrame::OPCODE_TEXT, $encoded));
         }
-        if($this->isConnected()) {
+    }
+    public function onRun($currentTick) {
+        try {
+            $this->client->onRun();
+        } catch(\Exception $e) {
+            $this->owner->getLogger()->logException($e);
+            $this->cancel();
+        }
+        if($this->isHandshaked()) { // 无效的客户端连接
             $currentTime = time();
             if($this->lastping !== false && $this->lastpong < $this->lastping - 15) { // timeout
                 $this->owner->getLogger()->warning("连接断开？pong已超时");
                 $this->owner->getLogger()->debug("lastping: " . var_export($this->lastping, true));
                 $this->owner->getLogger()->debug("lastpong: " . var_export($this->lastpong, true));
-                $this->quit();
+                $this->cancel();
                 return;
             } else if($currentTime - $this->owner->getConfig()->get("pingperiod") > $this->lastping) {
-                $this->owner->getNetworkThread()->sendMessage("heart", []);
+                $this->sendMessage("heart", []);
                 $this->lastping = $currentTime;
                 if($this->lastpong === false) {
                     $this->lastpong = $currentTime;
                 }
             }
-        }
-    }
-    protected function handleUnconnectedPacket($pk) {
-        $this->owner->getLogger()->debug("unconnected: " . $pk["header"]["type"]);
-        switch($pk["header"]["type"]) {
-            case "NetworkThread.connected":
-                $this->owner->getNetworkThread()->sendMessage("shakeHand", [
-                    "serverId" => $this->owner->getHandshakeConfig()->getServerId(),
-                    "hashKey" => $this->owner->getHandshakeConfig()->getHashKey(), // bin2hex(random_bytes(32))
-                    "name" => $this->owner->getHandshakeConfig()->getServerName(),
-                    "version" => $this->owner->getHandshakeConfig()->getPlatformVersion(), // 设置dev版本将提示 "您正在使用的是开发版，如有问题请在对应适配器的GitHub仓库中提出Issues"
-                    "platform" => $this->owner->getHandshakeConfig()->getPlatformName()
-                ]);
-                $this->status = self::STATUS_CONNECTED;
-                $this->owner->getLogger()->info("已建立连接");
-                break;
-            case "shutdown":
-                $this->owner->shutdown();
-                break;
-            default:
-                $this->owner->getLogger()->debug("未实现: " . json_encode($pk, JSON_UNESCAPED_UNICODE) . "（未连接）");
-                break;
         }
     }
     protected function handlePacket($pk) {
@@ -125,7 +116,7 @@ class EventHandleTask extends Task {
                     $this->owner->getLogger()->notice($pk["body"]["msg"]);
                 }
                 if(!$this->isHandshaked()) {
-                    $this->quit();
+                    $this->cancel();
                     return;
                 }
                 break;
@@ -157,7 +148,7 @@ class EventHandleTask extends Task {
                     $this->owner->getServer()->broadcastMessage($msg);
                     $res[] = $msg;
                 }
-                $this->owner->getNetworkThread()->sendMessage("chat", ["msg" => implode("\n", $res), "serverId" => $this->owner->getHandshakeConfig()->getServerId()], $pk["header"]["id"]);
+                $this->sendMessage("chat", ["msg" => implode("\n", $res), "serverId" => $this->owner->getHandshakeConfig()->getServerId()], $pk["header"]["id"]);
                 $this->owner->lastqqchat = time();
                 break;
             case "queryOnline":
@@ -170,7 +161,7 @@ class EventHandleTask extends Task {
                     $str .= "\n{$num}. {$player->getName()}" . ($showplayernametag ? ": " . $player->getNameTag() : "");
                     $num++; // ?
                 }
-                $this->owner->getNetworkThread()->sendMessage("queryOnline", ["list" => ["msg" => $str, "url" => $this->owner->getConfig()->get("serverurl"), "imgUrl" => $this->owner->getConfig()->get("imgurl"), "post_img" => $this->owner->getConfig()->get("postimg"), "serverType" => $this->owner->getConfig()->get("servertype")]], $pk["header"]["id"]);
+                $this->sendMessage("queryOnline", ["list" => ["msg" => $str, "url" => $this->owner->getConfig()->get("serverurl"), "imgUrl" => $this->owner->getConfig()->get("imgurl"), "post_img" => $this->owner->getConfig()->get("postimg"), "serverType" => $this->owner->getConfig()->get("servertype")]], $pk["header"]["id"]);
                 break;
             case "cmd":
                 $sender = new QQCommandSender();
@@ -180,15 +171,15 @@ class EventHandleTask extends Task {
                 break;
             case "run":
             case "runAdmin":
-                $this->owner->getNetworkThread()->sendMessage("success", ["msg" => "未实现"], $pk["header"]["id"]);
+                $this->sendMessage("success", ["msg" => "未实现"], $pk["header"]["id"]);
                 break;
             case "add":
                 $this->owner->getServer()->addWhitelist($pk["body"]["xboxid"]);
-                $this->owner->getNetworkThread()->sendMessage("success", ["msg" => "已尝试添加白名单: " . $pk["body"]["xboxid"]], $pk["header"]["id"]);
+                $this->sendMessage("success", ["msg" => "已尝试添加白名单: " . $pk["body"]["xboxid"]], $pk["header"]["id"]);
                 break;
             case "delete":
                 $this->owner->getServer()->removeWhitelist($pk["body"]["xboxid"]);
-                $this->owner->getNetworkThread()->sendMessage("success", ["msg" => "已尝试移除白名单: " . $pk["body"]["xboxid"]], $pk["header"]["id"]);
+                $this->sendMessage("success", ["msg" => "已尝试移除白名单: " . $pk["body"]["xboxid"]], $pk["header"]["id"]);
                 break;
             case "queryList":
                 $keywords = isset($pk["body"]["key"]) ? explode(" ", $pk["body"]["key"]) : [];
@@ -217,10 +208,10 @@ class EventHandleTask extends Task {
                         return ($key + 1) . ". " . $value;
                     }, array_keys($res[$pageIndex]), $res[$pageIndex]));
                 }
-                $this->owner->getNetworkThread()->sendMessage("queryWl", ["list" => $str], $pk["header"]["id"]);
+                $this->sendMessage("queryWl", ["list" => $str], $pk["header"]["id"]);
                 break;
             case "shutdown":
-                $this->owner->shutdown();
+                $this->cancel();
                 break;
             default:
                 $this->owner->getLogger()->debug("未实现: " . json_encode($pk, JSON_UNESCAPED_UNICODE));
@@ -228,13 +219,13 @@ class EventHandleTask extends Task {
         }
     }
     public function onCancel() {
-        $this->owner->getLogger()->info("将停止读取");
-    }
-    public function quit() {
-        $this->status = self::STATUS_DISCONNECTED;
-        $this->owner->getNetworkThread()->sendMessage("NetworkThread.shutdown", []);
-        $this->owner->getTaskHandler()->cancel(); // TODO: 这个说不要用
         $this->owner->getLogger()->debug("正常退出");
+        $this->status = self::STATUS_DISCONNECTED;
+        $this->client->close();
+    }
+    private function cancel() {
+        $this->owner->getServer()->getScheduler()->cancelTask($this->getTaskId());
+        $this->owner->shutdown();
     }
     public function getLastPing() {
         return $this->lastping;
@@ -281,5 +272,45 @@ class EventHandleTask extends Task {
             }
         }
         return $result;
+    }
+    public function onConnected() {
+        $this->owner->getLogger()->info("已建立连接");
+    }
+    public function onHandShaked() {
+        $this->sendMessage("shakeHand", [
+            "serverId" => $this->owner->getHandshakeConfig()->getServerId(),
+            "hashKey" => $this->owner->getHandshakeConfig()->getHashKey(), // bin2hex(random_bytes(32))
+            "name" => $this->owner->getHandshakeConfig()->getServerName(),
+            "version" => $this->owner->getHandshakeConfig()->getPlatformVersion(), // 设置dev版本将提示 "您正在使用的是开发版，如有问题请在对应适配器的GitHub仓库中提出Issues"
+            "platform" => $this->owner->getHandshakeConfig()->getPlatformName()
+        ]);
+        $this->status = self::STATUS_CONNECTED;
+        $this->owner->getLogger()->info("WebSocket握手成功");
+    }
+    public function onDisconnected() {
+        $this->cancel();
+    }
+    public function onMessage(string $message) {
+        $message = json_decode($message, true);
+        if($message === null) {
+            $this->owner->getLogger()->warning("JSON解码错误: " . json_last_error() . " " . json_last_error_msg() . " " . $message);
+            return;
+        }
+        $event = new DataPacketReceiveEvent($message);
+        $this->owner->getServer()->getPluginManager()->callEvent($event);
+        if($event->isCancelled()) {
+            return;
+        }
+        $this->handlePacket($message);
+        $this->lastpong = time();
+    }
+    public function onBinaryMessage(string $message) {
+        $this->owner->getLogger()->notice("BinaryMessage: " . bin2hex($message));
+    }
+    public function 接收到(string $string) {
+        $this->owner->getLogger()->debug("[接收到] $string");
+    }
+    public function 将发送(string $string) {
+        $this->owner->getLogger()->debug("[将发送] $string");
     }
 }

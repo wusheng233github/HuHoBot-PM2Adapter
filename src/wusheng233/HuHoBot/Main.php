@@ -42,8 +42,6 @@ class Main extends PluginBase implements Listener {
     ];
     /** @var Config */
     private $config;
-    /** @var NetworkThread */
-    private $networkthread;
     /** @var \pocketmine\scheduler\TaskHandler */
     private $taskhandler;
     /** @var EventHandleTask */
@@ -115,14 +113,13 @@ class Main extends PluginBase implements Listener {
         if($this->isConnected()) {
             return false;
         }
-        $this->networkthread = new NetworkThread($host, $this->getServer()->getLogger());
-        $this->networkthread->start();
         $this->getLogger()->debug("正常启动");
-        $this->taskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask($this->eventHandleTask = new EventHandleTask($this), $this->config->get("readperiod"));
+        $this->taskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask($this->eventHandleTask = new EventHandleTask($this, $host), $this->config->get("readperiod"));
+        $this->eventHandleTask->setHandler($this->taskhandler);
         return true;
     }
     public function isConnected() {
-        return $this->networkthread !== null && $this->eventHandleTask !== null && $this->taskhandler !== null;
+        return $this->eventHandleTask !== null && $this->taskhandler !== null && $this->eventHandleTask->isConnected();
     }
     /**
      * @priority MONITOR
@@ -135,7 +132,7 @@ class Main extends PluginBase implements Listener {
             return;
         }
         // TODO: 控制不要转发
-        $this->networkthread->sendMessage("chat", ["msg" => $this->getServer()->getLanguage()->translateString($event->getFormat(), [$event->getPlayer()->getName(), $event->getMessage()]), "serverId" => $this->getHandshakeConfig()->getServerId()]);
+        $this->eventHandleTask->sendMessage("chat", ["msg" => $this->getServer()->getLanguage()->translateString($event->getFormat(), [$event->getPlayer()->getName(), $event->getMessage()]), "serverId" => $this->getHandshakeConfig()->getServerId()]);
     }
     public function respone(string $msg, $uuid, $success = true) { // TODO: 其它地方有字数限制吗
         $toolong = "（消息过长）";
@@ -143,7 +140,7 @@ class Main extends PluginBase implements Listener {
         if(mb_strlen($msg) > $wordlimit) {
             $msg = mb_substr($msg, 0, $wordlimit - mb_strlen($toolong)) . $toolong;
         }
-        $this->getNetworkThread()->sendMessage($success ? "success" : "error", ["msg" => $msg], $uuid);
+        $this->eventHandleTask->sendMessage($success ? "success" : "error", ["msg" => $msg], $uuid);
     }
     public function onCommand(CommandSender $sender, Command $command, $label, array $args) {
         if($command->getName() !== "huhobot") {
@@ -172,7 +169,7 @@ class Main extends PluginBase implements Listener {
                     break;
                 }
                 if(isset($this->bindrequests[$args[1]])) {
-                    $this->networkthread->sendMessage("bindConfirm", [], $this->bindrequests[$args[1]]);
+                    $this->eventHandleTask->sendMessage("bindConfirm", [], $this->bindrequests[$args[1]]);
                     $sender->sendMessage("已确认绑定服务器，等待下发绑定密钥");
                     unset($this->bindrequests[$args[1]]);
                 }
@@ -183,7 +180,7 @@ class Main extends PluginBase implements Listener {
                     $sender->sendMessage("你缺少huhobot.disconnect权限，不能使用该功能");
                     break;
                 }
-                if($this->shutdown()) { // TODO: 别卡住
+                if($this->shutdown()) {
                     $sender->sendMessage("尝试退出" . $this->getName());
                 } else {
                     $sender->sendMessage("已断开连接");
@@ -226,8 +223,8 @@ class Main extends PluginBase implements Listener {
     public function getConfig() {
         return $this->config;
     }
-    public function getNetworkThread() {
-        return $this->networkthread;
+    public function getEventHandleTask() {
+        return $this->eventHandleTask;
     }
     public function getTaskHandler() {
         return $this->taskhandler;
@@ -236,9 +233,7 @@ class Main extends PluginBase implements Listener {
         if(!$this->isConnected()) {
             return false;
         }
-        $this->eventHandleTask->quit();
-        $this->networkthread->quit(); // $this->networkthread->join()
-        $this->networkthread = null;
+        $this->getServer()->getScheduler()->cancelTask($this->eventHandleTask->getTaskId());
         $this->eventHandleTask = null;
         $this->taskhandler = null;
         return true;
