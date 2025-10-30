@@ -1,0 +1,18 @@
+name: 打包Phar
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+      - name: Setup PHP 7.0
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.0"
+      - name: 下载DevTools
+        run: wget -q -O DevTools.phar https://github.com/pmmp/DevTools/releases/download/1.12.1/DevTools_v1.12.1.phar
