@@ -15,4 +15,22 @@ jobs:
         with:
           php-version: "7.0"
       - name: 下载DevTools
-        run: wget -q -O DevTools.phar https://github.com/pmmp/DevTools/releases/download/1.12.1/DevTools_v1.12.1.phar
+        run: wget -q -O DevTools.phar https://github.com/pmmp/DevTools/releases/download/1.12.8/DevTools_v1.12.8.phar
+      - name: 清理插件目录
+        run: |
+          mkdir -p build
+          cp plugin.yml build/
+          cp -r src build/
+          cp -r resources build/
+      - name: 获取提交hash
+        id: githash
+        run: echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: 修改插件版本
+        run: 'sed -i "s/version: .*/version: ${{steps.githash.outputs.hash}}/" plugin.yml'
+      - name: 打包插件
+        run: php -dphar.readonly=0 DevTools.phar --make build --out HuHoBotPM2Adapter.phar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HuHoBotPM2Adapter
+          path: HuHoBotPM2Adapter.phar
+          retention-days: 30
