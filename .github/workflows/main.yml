@@ -20,6 +20,7 @@ jobs:
         run: |
           mkdir -p build
           cp plugin.yml build/
+          cp LICENSE build/
           cp -r src build/
           cp -r resources build/
       - name: 获取提交hash
