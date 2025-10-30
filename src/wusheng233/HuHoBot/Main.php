@@ -13,6 +13,7 @@ use pocketmine\utils\Config;
 
 /**
  * @license https://opensource.org/license/MIT MIT
+ * @copyright 2025 wusheng233
  */
 class Main extends PluginBase implements Listener {
     const DEFAULT_CONFIG = [ // 提交记录
@@ -241,4 +242,5 @@ class Main extends PluginBase implements Listener {
         }
         $this->getConfig()->save();
     }
+
 }
