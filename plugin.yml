@@ -7,3 +7,22 @@ api: 2.0.0
 geniapi: 1.7.3
 ScaxeAPI: 1.7.3
 website: https://github.com/wusheng233github/HuHoBot-PM2Adapter
+commands:
+  huhobot:
+    description: HuHoBot控制命令
+    usage: 详情请在 /huhobot help 查看
+    permission: huhobot
+permissions:
+  huhobot:
+    description: 允许控制HuHoBot插件
+    defaults: op
+    children:
+      huhobot.bind:
+        description: 允许通过命令让服务器绑定QQ群
+        defaults: op
+      huhobot.disconnect:
+        description: 允许通过命令让插件断开连接
+        defaults: op
+      huhobot.connect.host:
+        description: 允许通过命令让插件向指定主机连接
+        defaults: op

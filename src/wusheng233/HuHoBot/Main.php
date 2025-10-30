@@ -54,17 +54,6 @@ class Main extends PluginBase implements Listener {
         if(!extension_loaded("openssl")) {
             $this->getLogger()->warning("需要openssl扩展才能使用WebSocket Secure连接");
         }
-        $root = new Permission("huhobot", "允许控制HuHoBot插件", Permission::DEFAULT_OP);
-        DefaultPermissions::registerPermission($root); // TODO: 不要重复注册权限
-        DefaultPermissions::registerPermission(new Permission("huhobot.bind", "允许通过命令让服务器绑定QQ群", Permission::DEFAULT_OP), $root);
-        DefaultPermissions::registerPermission(new Permission("huhobot.disconnect", "允许通过命令让插件断开连接", Permission::DEFAULT_OP), $root);
-        DefaultPermissions::registerPermission(new Permission("huhobot.connect.host", "允许通过命令让插件向指定主机连接", Permission::DEFAULT_OP), DefaultPermissions::registerPermission(new Permission("huhobot.connect", "允许通过命令让插件启动连接", Permission::DEFAULT_OP), $root));
-        $command = new PluginCommand("huhobot", $this);
-        $command->setDescription("HuHoBot控制命令"); // TODO: i18n
-        $command->setUsage("详情请在 /huhobot help 查看");
-        $command->setPermission("huhobot");
-        $command->setExecutor($this);
-        $this->getServer()->getCommandMap()->register($this->getName(), $command);
         $this->handshakeConfig = new HandshakeConfig($this->getConfig()->getNested("id.serverid", str_repeat("0", 32)), $this->getConfig()->getNested("id.hashkey"), $this->getConfig()->getNested("id.name"), $this->getConfig()->getNested("platform.name"), $this->getConfig()->getNested("platform.version"));
         $this->connect($this->getConfig()->getNested("network.botserver"));
         if($this->getConfig()->getNested("id.hashkey", "") === "") {
