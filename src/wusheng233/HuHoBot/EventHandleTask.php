@@ -76,7 +76,7 @@ class EventHandleTask extends Task implements EventListener {
                 $this->owner->newBindRequest($pk["body"]["bindCode"], $pk["header"]["id"]);
                 break;
             case "sendConfig":
-                $this->owner->getConfig()->set("hashkey", $pk["body"]["hashKey"]);
+                $this->owner->getConfig()->setNested("id.hashkey", $pk["body"]["hashKey"]);
                 $this->owner->getConfig()->save();
                 $this->owner->getLogger()->notice("下发了新的绑定密钥");
                 break;
