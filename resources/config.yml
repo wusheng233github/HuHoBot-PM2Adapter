@@ -1,0 +1,32 @@
+network:
+  botserver: ""
+  heart-period: 10
+  read-period: 10
+id:
+  serverid: ""
+  hashkey: ""
+  name: ""
+group-chat:
+  filter:
+    enable: true
+    invalid-chars: true
+    pattern: /(?!)/
+    replacement: ""
+  command-sender: QQ Console
+  word-limit: 7000
+  format: "[群内消息] <%s> %s"
+game-chat:
+  post: true
+  time-limit: 300
+platform:
+  name: ""
+  version: "dev"
+motd:
+  post-image: true
+  image: https://picsum.photos/500/100
+  type: bedrock
+  address: 127.0.0.1:19132
+whitelist:
+  items-per-page: 10
+show-player-nametag: true
+version: 1

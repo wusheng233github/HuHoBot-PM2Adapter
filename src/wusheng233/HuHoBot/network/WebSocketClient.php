@@ -1,8 +1,6 @@
 <?php
 namespace wusheng233\HuHoBot\network;
 
-use ILogger;
-
 class WebSocketClient {
     const STATUS_CLOSED = 0;
     const STATUS_CONNECTING = 1;

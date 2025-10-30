@@ -40,52 +40,17 @@ class Main extends PluginBase implements Listener {
         "wordlimit" => 7000, // TODO: 没有解决问题
         "filterinvalidchars" => true
     ];
-    /** @var Config */
-    private $config;
     /** @var \pocketmine\scheduler\TaskHandler */
-    private $taskhandler;
+    private $taskHandler;
     /** @var EventHandleTask */
     private $eventHandleTask;
-    private $bindrequests = [];
-    public $lastqqchat = 0; // int
+    private $bindRequests = [];
+    public $lastChat = 0; // int
     protected $handshakeConfig;
     public function onEnable() {
         //self::$pluginversion = $this->getDescription()->getVersion();
-        $datafolder = rtrim($this->getDataFolder(), "/");
-        if(!file_exists($datafolder)) {
-            mkdir($datafolder);
-        }
-        $error = false; // 重复
-        if(!is_dir($datafolder)) {
-            $this->getLogger()->error("数据文件夹错误");
-            $this->getServer()->getPluginManager()->disablePlugin($this);
-            return false;
-        }
-        $this->config = new Config($this->getDataFolder() . "/config.json", Config::JSON, self::DEFAULT_CONFIG);
-        if(!$this->config->exists("serverid")) {
-            $this->config->set("serverid", bin2hex(random_bytes(16))); // 不能Utils::getMachineUniqueId
-            $this->config->save();
-        }
-        if(!is_readable($datafolder . "/config.json")) {
-            $this->getLogger()->error("配置文件没有读取权限");
-            $error = true;
-        }
-        if(!is_writable($datafolder . "/config.json")) {
-            $this->getLogger()->error("配置文件没有写入权限");
-            $error = true;
-        }
-        if(!is_file($datafolder . "/config.json")) {
-            $this->getLogger()->error("配置文件不是文件");
-            $error = true;
-        }
-        if($this->config->get("huhobotwsserver", "") === "") {
-            $this->getLogger()->error("未配置后台地址，请在config.json中配置huhobotwsserver，带URL Scheme");
-            $error = true;
-        }
-        if($error) {
-            $this->getServer()->getPluginManager()->disablePlugin($this);
-            return false;
-        }
+        $this->saveDefaultConfig();
+        $this->jsonConfigUpgrade();
         if(!extension_loaded("openssl")) {
             $this->getLogger()->warning("需要openssl扩展才能使用WebSocket Secure连接");
         }
@@ -100,12 +65,12 @@ class Main extends PluginBase implements Listener {
         $command->setPermission("huhobot");
         $command->setExecutor($this);
         $this->getServer()->getCommandMap()->register($this->getName(), $command);
-        $this->handshakeConfig = new HandshakeConfig($this->config->get("serverid", str_repeat("0", 32)), $this->config->get("hashkey"), $this->config->get("servername"), $this->config->get("platformname"), $this->config->get("platformversion"));
-        $this->connect($this->config->get("huhobotwsserver"));
-        if($this->config->get("hashkey", "") === "") {
-            $this->getLogger()->notice("未检测到绑定密钥，要想绑定QQ群，请让HuHoBot机器人执行 /绑定 " . $this->config->get("serverid", "服务器ID"));
+        $this->handshakeConfig = new HandshakeConfig($this->getConfig()->getNested("id.serverid", str_repeat("0", 32)), $this->getConfig()->getNested("id.hashkey"), $this->getConfig()->getNested("id.name"), $this->getConfig()->getNested("platform.name"), $this->getConfig()->getNested("platform.version"));
+        $this->connect($this->getConfig()->getNested("network.botserver"));
+        if($this->getConfig()->getNested("id.hashkey", "") === "") {
+            $this->getLogger()->notice("未检测到绑定密钥，要想绑定QQ群，请让HuHoBot机器人执行 /绑定 " . $this->getConfig()->getNested("id.serverid", "服务器ID"));
         }
-        if($this->config->get("chatforwarding")) {
+        if($this->getConfig()->getNested("game-chat.post")) {
             $this->getServer()->getPluginManager()->registerEvents($this, $this); // TODO: 这个不对
         }
     }
@@ -114,12 +79,12 @@ class Main extends PluginBase implements Listener {
             return false;
         }
         $this->getLogger()->debug("正常启动");
-        $this->taskhandler = $this->getServer()->getScheduler()->scheduleRepeatingTask($this->eventHandleTask = new EventHandleTask($this, $host), $this->config->get("readperiod"));
-        $this->eventHandleTask->setHandler($this->taskhandler);
+        $this->taskHandler = $this->getServer()->getScheduler()->scheduleRepeatingTask($this->eventHandleTask = new EventHandleTask($this, $host), $this->getConfig()->getNested("network.read-period"));
+        $this->eventHandleTask->setHandler($this->taskHandler);
         return true;
     }
     public function isConnected() {
-        return $this->eventHandleTask !== null && $this->taskhandler !== null && $this->eventHandleTask->isConnected();
+        return $this->eventHandleTask !== null && $this->taskHandler !== null && $this->eventHandleTask->isConnected();
     }
     /**
      * @priority MONITOR
@@ -128,7 +93,7 @@ class Main extends PluginBase implements Listener {
         if($event->isCancelled()) {
             return;
         }
-        if(time() - $this->config->get("chatforwardingtimelimit") > $this->lastqqchat) {
+        if(time() - $this->getConfig()->getNested("game-chat.time-limit") > $this->lastChat) {
             return;
         }
         // TODO: 控制不要转发
@@ -136,7 +101,7 @@ class Main extends PluginBase implements Listener {
     }
     public function respone(string $msg, $uuid, $success = true) { // TODO: 其它地方有字数限制吗
         $toolong = "（消息过长）";
-        $wordlimit = $this->config->get("wordlimit");
+        $wordlimit = $this->getConfig()->getNested("group-chat.word-limit");
         if(mb_strlen($msg) > $wordlimit) {
             $msg = mb_substr($msg, 0, $wordlimit - mb_strlen($toolong)) . $toolong;
         }
@@ -168,10 +133,10 @@ class Main extends PluginBase implements Listener {
                     $sender->sendMessage("未设置验证码: /huhobot bind <验证码>");
                     break;
                 }
-                if(isset($this->bindrequests[$args[1]])) {
-                    $this->eventHandleTask->sendMessage("bindConfirm", [], $this->bindrequests[$args[1]]);
+                if(isset($this->bindRequests[$args[1]])) {
+                    $this->eventHandleTask->sendMessage("bindConfirm", [], $this->bindRequests[$args[1]]);
                     $sender->sendMessage("已确认绑定服务器，等待下发绑定密钥");
-                    unset($this->bindrequests[$args[1]]);
+                    unset($this->bindRequests[$args[1]]);
                 }
                 break;
             case "disconnect":
@@ -193,7 +158,7 @@ class Main extends PluginBase implements Listener {
                     $sender->sendMessage("你缺少huhobot.connect权限，不能使用该功能");
                     break;
                 }
-                $host = $this->config->get("huhobotwsserver");
+                $host = $this->getConfig()->getNested("network.botserver");
                 if(isset($args[1])) {
                     if(!$sender->hasPermission("huhobot.connect.host")) {
                         $sender->sendMessage("你缺少huhobot.connect.host权限，不能指定目标主机");
@@ -218,16 +183,16 @@ class Main extends PluginBase implements Listener {
     }
     public function newBindRequest(string $code, string $uuid) {
         $this->getLogger()->notice("有新的绑定请求！使用 /huhobot bind $code 确认绑定");
-        $this->bindrequests[$code] = $uuid;
+        $this->bindRequests[$code] = $uuid;
     }
-    public function getConfig() {
+    /*public function getConfig() {
         return $this->config;
-    }
+    }*/
     public function getEventHandleTask() {
         return $this->eventHandleTask;
     }
     public function getTaskHandler() {
-        return $this->taskhandler;
+        return $this->taskHandler;
     }
     public function shutdown() {
         if(!$this->isConnected()) {
@@ -235,13 +200,56 @@ class Main extends PluginBase implements Listener {
         }
         $this->getServer()->getScheduler()->cancelTask($this->eventHandleTask->getTaskId());
         $this->eventHandleTask = null;
-        $this->taskhandler = null;
+        $this->taskHandler = null;
         return true;
     }
     public function onDisable() {
-        $this->shutdown();
+        $this->shutdown(); // TODO: PluginTask
     }
     public function getHandshakeConfig() {
         return $this->handshakeConfig;
+    }
+    public function jsonConfigUpgrade() {
+        if(!file_exists($this->getDataFolder() . "/config.json")) {
+            return;
+        }
+        $config = new Config($this->getDataFolder() . "/config.json", Config::JSON);
+        $map = [
+            "huhobotwsserver" => "network.botserver",
+            "hashkey" => "id.hashkey",
+            "serverid" => "id.serverid",
+            "servername" => "id.name",
+            "enablefilter" => "group-chat.filter.enable",
+            "chatforwarding" => "game-chat.post",
+            "whitelistitemsperpage" => "whitelist.items-per-page",
+            "pingperiod" => "network.heart-period",
+            "chatforwardingtimelimit" => "game-chat.time-limit",
+            "imgurl" => "motd.image",
+            "postimg" => "motd.post-image",
+            "servertype" => "motd.type",
+            "serverurl" => "motd.address",
+            "showplayernametag" => "show-player-nametag",
+            "readperiod" => "network.read-period",
+            "commandsendername" => "group-chat.command-sender",
+            "platformname" => "platform.name",
+            "platformversion" => "platform.version",
+            "replacement" => "group-chat.replacement",
+            "qqmessageformat" => "group-chat.format",
+            "wordlimit" => "group-chat.word-limit",
+            "filterinvalidchars" => "group-chat.filter.invalid-chars",
+            "filter" => "group-chat.filter.pattern"
+        ];
+        $usedefaultchatformat = false;
+        foreach($config->getAll() as $key => $value) {
+            if(isset($map[$key])) {
+                if($usedefaultchatformat && $key == "qqmessageformat") {
+                    $value = "[群内消息] <%s> %s";
+                }
+                $this->getConfig()->setNested($map[$key], $value);
+            } else if($key == "usedefaultchatformat" && $value) {
+                $usedefaultchatformat = true;
+            }
+        }
+        $this->getConfig()->save();
     }
 }

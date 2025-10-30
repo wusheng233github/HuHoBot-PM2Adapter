@@ -60,7 +60,7 @@ class EventHandleTask extends Task implements EventListener {
                 $this->owner->getLogger()->debug("lastpong: " . var_export($this->lastpong, true));
                 $this->cancel();
                 return;
-            } else if($currentTime - $this->owner->getConfig()->get("pingperiod") > $this->lastping) {
+            } else if($currentTime - $this->owner->getConfig()->getNested("network.heart-period") > $this->lastping) {
                 $this->sendMessage("heart", []);
                 $this->lastping = $currentTime;
                 if($this->lastpong === false) {
@@ -126,47 +126,43 @@ class EventHandleTask extends Task implements EventListener {
                 $res = [];
                 foreach($lines as $msg) {
                     // Warning: preg_replace(): Compilation failed: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
-                    if($this->owner->getConfig()->get("enablefilter")) {
-                        $msg = preg_replace($this->owner->getConfig()->get("filter"), $this->owner->getConfig()->get("replacement"), $msg);
+                    if($this->owner->getConfig()->getNested("group-chat.filter.enable")) {
+                        $msg = preg_replace($this->owner->getConfig()->getNested("group-chat.filter.pattern"), $this->owner->getConfig()->getNested("group-chat.replacement"), $msg);
                     }
                     if($msg === null) {
                         $msg = "（错误）";
                     }
-                    if($this->owner->getConfig()->get("filterinvalidchars")) {
+                    if($this->owner->getConfig()->getNested("group-chat.filter.invalid-chars")) {
                         $msg = self::filterInvalidChars($msg);
                     }
                     if($msg === "") {
                         $msg = "（空白消息）";
                     }
-                    if($this->owner->getConfig()->get("usedefaultchatformat")) {
-                        $msg = "[群内消息] " . $this->owner->getServer()->getLanguage()->translateString("%chat.type.text", [$pk["body"]["nick"], $msg]);
-                    } else {
-                        $msg = sprintf($this->owner->getConfig()->get("qqmessageformat"), $pk["body"]["nick"], $msg);
-                        if($msg === false) {
-                            $msg = "（聊天格式配置有误）";
-                        }
+                    $msg = sprintf($this->owner->getConfig()->getNested("group-chat.format"), $pk["body"]["nick"], $msg);
+                    if($msg === false) {
+                        $msg = "（聊天格式配置有误）";
                     }
                     $this->owner->getServer()->broadcastMessage($msg);
                     $res[] = $msg;
                 }
                 $this->sendMessage("chat", ["msg" => implode("\n", $res), "serverId" => $this->owner->getHandshakeConfig()->getServerId()], $pk["header"]["id"]);
-                $this->owner->lastqqchat = time();
+                $this->owner->lastChat = time();
                 break;
             case "queryOnline":
                 $server = $this->owner->getServer();
                 $onlineplayers = $server->getOnlinePlayers();
                 $str = count($onlineplayers) . "/" . $server->getMaxPlayers() . " 在线";
                 $num = 1;
-                $showplayernametag = $this->owner->getConfig()->get("showplayernametag");
+                $showplayernametag = $this->owner->getConfig()->getNested("show-player-nametag");
                 foreach($onlineplayers as $player) {
                     $str .= "\n{$num}. {$player->getName()}" . ($showplayernametag ? ": " . $player->getNameTag() : "");
                     $num++; // ?
                 }
-                $this->sendMessage("queryOnline", ["list" => ["msg" => $str, "url" => $this->owner->getConfig()->get("serverurl"), "imgUrl" => $this->owner->getConfig()->get("imgurl"), "post_img" => $this->owner->getConfig()->get("postimg"), "serverType" => $this->owner->getConfig()->get("servertype")]], $pk["header"]["id"]);
+                $this->sendMessage("queryOnline", ["list" => ["msg" => $str, "url" => $this->owner->getConfig()->getNested("motd.address"), "imgUrl" => $this->owner->getConfig()->getNested("motd.image"), "post_img" => $this->owner->getConfig()->getNested("motd.post-image"), "serverType" => $this->owner->getConfig()->getNested("motd.type")]], $pk["header"]["id"]);
                 break;
             case "cmd":
                 $sender = new QQCommandSender();
-                $sender->setName($this->owner->getConfig()->get("commandsendername"));
+                $sender->setName($this->owner->getConfig()->getNested("group-chat.command-sender"));
                 $this->owner->getServer()->dispatchCommand($sender, $pk["body"]["cmd"]);
                 $this->owner->respone(implode("\n", $sender->getAllMessages()), $pk["header"]["id"]);
                 break;
@@ -200,7 +196,7 @@ class EventHandleTask extends Task implements EventListener {
                     }
                 }
                 $str = "找不到";
-                $res = array_chunk($res, $this->owner->getConfig()->get("whitelistitemsperpage"), true);
+                $res = array_chunk($res, $this->owner->getConfig()->getNested("whitelist.items-per-page"), true);
                 if(!isset($res[$pageIndex])) {
                     $pageIndex = 0;
                 }
