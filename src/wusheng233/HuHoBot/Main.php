@@ -3,11 +3,8 @@ namespace wusheng233\HuHoBot;
 
 use pocketmine\command\CommandSender;
 use pocketmine\command\Command;
-use pocketmine\command\PluginCommand;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerChatEvent;
-use pocketmine\permission\DefaultPermissions;
-use pocketmine\permission\Permission;
 use pocketmine\plugin\PluginBase;
 use pocketmine\utils\Config;
 
@@ -15,31 +12,6 @@ use pocketmine\utils\Config;
  * @license https://opensource.org/license/MIT MIT
  */
 class Main extends PluginBase implements Listener {
-    const DEFAULT_CONFIG = [ // 提交记录
-        "huhobotwsserver" => "", // TODO: 格式验证、清理
-        "hashkey" => "",
-        "servername" => "",
-        "enablefilter" => false,
-        "chatforwarding" => true,
-        "whitelistitemsperpage" => 10,
-        "pingperiod" => 10,
-        "chatforwardingtimelimit" => 5 * 60,
-        "imgurl" => "https://picsum.photos/500/100", // FIXME: picsum.photos经常出现后端错误
-        "postimg" => true,
-        "servertype" => "bedrock", // TODO: 不是Bedrock版，信息图片不正常？
-        "serverurl" => "1.14.51.4:19198",
-        "showplayernametag" => true,
-        "readperiod" => 10,
-        "commandsendername" => "QQ Console",
-        "platformname" => "",
-        "platformversion" => "dev",
-        "filter" => "/(?!)/",
-        "replacement" => "",
-        "usedefaultchatformat" => false,
-        "qqmessageformat" => "[群内消息] <%s> %s",
-        "wordlimit" => 7000, // TODO: 没有解决问题
-        "filterinvalidchars" => true
-    ];
     /** @var \pocketmine\scheduler\TaskHandler */
     private $taskHandler;
     /** @var EventHandleTask */
