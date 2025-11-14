@@ -205,6 +205,9 @@ class WebSocketClient {
         // Writing to a network stream may end before the whole string is written. Return value of fwrite() may be checked
         $length = strlen($data);
         for($written = 0;$written < $length;$written += $fwrite) {
+            if(feof($this->socket)) {
+                $this->close();
+            }
             $fwrite = @fwrite($this->socket, substr($data, $written));
             if($fwrite === false) {
                 throw new SocketException("fwrite失败");
@@ -228,7 +231,7 @@ class WebSocketClient {
     protected function receive() {
         if(feof($this->socket)) {
             $this->close();
-            throw new SocketException("EOF");
+            return;
         }
         $data = fread($this->socket, 2048); // ...
         if($data === false) {
@@ -238,8 +241,8 @@ class WebSocketClient {
         $this->buffer .= $data;
     }
     public function close($payload = "", $status = 1000) {
-        if($this->socket) {
-            if($this->isHandshaked()) {
+        if($this->isHandshaked()) {
+            if($this->socket && !feof($this->socket)) {
                 if($status !== null) {
                     $payload = pack("n", $status) . $payload; // ?
                 }
@@ -248,8 +251,8 @@ class WebSocketClient {
                 } catch(SocketException $e) {
 
                 }
+                fclose($this->socket);
             }
-            fclose($this->socket);
             $this->socket = null;
             $this->status = self::STATUS_CLOSED;
             $this->eventListener->onClosed(); // 只能调用一次

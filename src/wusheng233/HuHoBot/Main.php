@@ -171,10 +171,11 @@ class Main extends PluginBase implements Listener {
         return $this->handshakeConfig;
     }
     public function jsonConfigUpgrade() {
-        if(!file_exists($this->getDataFolder() . "/config.json")) {
+        $configfilepath = $this->getDataFolder() . "/config.json";
+        if(!file_exists($configfilepath)) {
             return;
         }
-        $config = new Config($this->getDataFolder() . "/config.json", Config::JSON);
+        $config = new Config($configfilepath, Config::JSON);
         $map = [
             "huhobotwsserver" => "network.botserver",
             "hashkey" => "id.hashkey",
@@ -212,5 +213,6 @@ class Main extends PluginBase implements Listener {
             }
         }
         $this->getConfig()->save();
+        rename($configfilepath, "$configfilepath.bak");
     }
 }

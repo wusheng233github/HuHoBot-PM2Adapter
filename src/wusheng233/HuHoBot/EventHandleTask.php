@@ -180,32 +180,35 @@ class EventHandleTask extends Task implements EventListener {
                 break;
             case "queryList":
                 $keywords = isset($pk["body"]["key"]) ? explode(" ", $pk["body"]["key"]) : [];
-                $whitelist = $this->owner->getServer()->getWhitelisted();
-                $all = array_keys($whitelist->getAll());
-                $pageIndex = isset($pk["body"]["page"]) ? $pk["body"]["page"] - 1 : 0;
-                $res = [];
-                foreach($all as $playername) {
-                    foreach($keywords as $keyword) {
-                        if(strpos($playername, $keyword) === false) {
-                            $playername = false;
-                            break;
+
+                $whitelist = $this->owner->getServer()->getWhitelisted()->getAll(true);
+                if(empty($keywords)) {
+                    $filtered = $whitelist;
+                } else {
+                    $filtered = array_filter($whitelist, function($v) use($keywords) {
+                        foreach($keywords as $keyword) {
+                            if(stripos($v, $keyword) === false) {
+                                return false;
+                            }
                         }
-                    }
-                    if($playername !== false) {
-                        $res[] = $playername;
-                    }
+                        return true;
+                    });
                 }
-                $str = "找不到";
-                $res = array_chunk($res, $this->owner->getConfig()->getNested("whitelist.items-per-page"), true);
-                if(!isset($res[$pageIndex])) {
-                    $pageIndex = 0;
+
+                $pageIndex = isset($pk["body"]["page"]) ? max(0, $pk["body"]["page"]) : 0;
+                $length = $this->owner->getConfig()->getNested("whitelist.items-per-page");
+                $paged = array_slice($filtered, $pageIndex * $length, $length, true);
+
+                $message = "找不到";
+                if(!empty($paged)) {
+                   $totalPages = ceil(count($filtered) / $length);
+                   $pageNumber = $pageIndex + 1;
+                   $message = "第 $pageNumber/$totalPages 页\n" . implode("\n", array_map(function($key, $value) {
+                       return ($key + 1) . ". $value";
+                   }, array_keys($paged), $paged));
                 }
-                if(isset($res[$pageIndex])) {
-                    $str = "第" . ($pageIndex + 1) . "/" . count($res) . "页\n" . implode("\n", array_map(function($key, $value) {
-                        return ($key + 1) . ". " . $value;
-                    }, array_keys($res[$pageIndex]), $res[$pageIndex]));
-                }
-                $this->sendMessage("queryWl", ["list" => $str], $pk["header"]["id"]);
+
+                $this->sendMessage("queryWl", ["list" => $message], $pk["header"]["id"]);
                 break;
             case "shutdown":
                 $this->cancel();
