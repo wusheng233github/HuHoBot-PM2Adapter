@@ -219,7 +219,6 @@ class EventHandleTask extends Task implements EventListener {
         }
     }
     public function onCancel() {
-        $this->owner->getLogger()->debug("正常退出");
         $this->status = self::STATUS_DISCONNECTED;
         $this->client->close();
     }
@@ -288,7 +287,7 @@ class EventHandleTask extends Task implements EventListener {
         $this->owner->getLogger()->info("WebSocket握手成功");
     }
     public function onClosed() {
-        $this->owner->getLogger()->debug("Closed");
+        $this->owner->getLogger()->info("断开连接");
         $this->cancel();
     }
     public function onMessage(string $message) {

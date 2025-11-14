@@ -202,16 +202,15 @@ class WebSocketClient {
         if(!isset($this->socket)) {
             return;
         }
-        // Writing to a network stream may end before the whole string is written. Return value of fwrite() may be checked
+        if(feof($this->socket)) {
+            $this->close();
+        }
         $length = strlen($data);
-        for($written = 0;$written < $length;$written += $fwrite) {
-            if(feof($this->socket)) {
-                $this->close();
-            }
-            $fwrite = @fwrite($this->socket, substr($data, $written));
-            if($fwrite === false) {
-                throw new SocketException("fwrite失败");
-            }
+        $fwrite = @fwrite($this->socket, $data);
+        if($fwrite === false) {
+            throw new SocketException("fwrite失败");
+        } else if($fwrite !== $length) {
+            throw new SocketException("$length 的数据写了 $fwrite 字节");
         }
     }
     public function send(Message $message) {
