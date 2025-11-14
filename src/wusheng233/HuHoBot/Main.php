@@ -10,6 +10,7 @@ use pocketmine\utils\Config;
 
 /**
  * @license https://opensource.org/license/MIT MIT
+ * @copyright 2025 wusheng233
  */
 class Main extends PluginBase implements Listener {
     /** @var \pocketmine\scheduler\TaskHandler */
@@ -215,4 +216,5 @@ class Main extends PluginBase implements Listener {
         $this->getConfig()->save();
         rename($configfilepath, "$configfilepath.bak");
     }
+
 }
