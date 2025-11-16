@@ -61,11 +61,11 @@ class EventHandleTask extends Task implements EventListener {
                 $this->cancel();
                 return;
             } else if($currentTime - $this->owner->getConfig()->getNested("network.heart-period") > $this->lastping) {
-                $this->sendMessage("heart", []);
                 $this->lastping = $currentTime;
                 if($this->lastpong === false) {
                     $this->lastpong = $currentTime;
                 }
+                $this->sendMessage("heart", []); // 未捕获异常
             }
         }
     }
@@ -211,6 +211,9 @@ class EventHandleTask extends Task implements EventListener {
                 $this->sendMessage("queryWl", ["list" => $message], $pk["header"]["id"]);
                 break;
             case "shutdown":
+                if($pk["body"]["msg"]) {
+                    $this->owner->getLogger()->notice($pk["body"]["msg"]);
+                }
                 $this->cancel();
                 break;
             default:

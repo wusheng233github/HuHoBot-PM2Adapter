@@ -112,7 +112,7 @@ class WebSocketClient {
         //var_dump([$read, $write, $except]);
     }
     public function isConnected() {
-        return $this->status === self::STATUS_CONNECTED || $this->isHandshakeing() || $this->isHandshaked();
+        return $this->status === self::STATUS_CONNECTED || $this->isHandshakeing() || $this->isHandshaked() || $this->isClosing();
     }
     public function isConnecting() {
         return $this->status === self::STATUS_CONNECTING;
@@ -141,9 +141,9 @@ class WebSocketClient {
         $this->status = self::STATUS_HANDSHAKEING;
     }
     protected function handleHandshakeResponse(HttpMessage $response) {
-        if($response[":status:"] != "HTTP/1.1 101 Switching Protocols" ||
-           $response["upgrade"] != "websocket" ||
-           $response["connection"] != "Upgrade" ||
+        if(strpos($response[":status:"], "HTTP/1.1 101") !== 0 || // HTTP/1.1 101 Switching Protocols
+           strtolower($response["upgrade"]) != "websocket" ||
+           strtolower($response["connection"]) != "upgrade" || // Upgrade
            $response["sec-websocket-accept"] != base64_encode(sha1($this->websocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true))) {
             throw new ProtocolException("握手失败");
         }
@@ -240,17 +240,19 @@ class WebSocketClient {
         $this->buffer .= $data;
     }
     public function close($payload = "", $status = 1000) {
-        if($this->isHandshaked()) {
-            if($this->socket && !feof($this->socket)) {
-                if($status !== null) {
-                    $payload = pack("n", $status) . $payload; // ?
-                }
-                try {
-                    $this->send(new WebSocketFrame(WebSocketFrame::OPCODE_CONNECTION_CLOSE, $payload));
-                } catch(SocketException $e) {
+        if($this->isConnected()) {
+            if($this->isHandshaked()) {
+                if($this->socket && !feof($this->socket)) {
+                    if($status !== null) {
+                        $payload = pack("n", $status) . $payload; // ?
+                    }
+                    try {
+                        $this->send(new WebSocketFrame(WebSocketFrame::OPCODE_CONNECTION_CLOSE, $payload));
+                    } catch(SocketException $e) {
 
+                    }
+                    fclose($this->socket);
                 }
-                fclose($this->socket);
             }
             $this->socket = null;
             $this->status = self::STATUS_CLOSED;
