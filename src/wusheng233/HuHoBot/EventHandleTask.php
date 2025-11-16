@@ -164,19 +164,19 @@ class EventHandleTask extends Task implements EventListener {
                 $sender = new QQCommandSender();
                 $sender->setName($this->owner->getConfig()->getNested("group-chat.command-sender"));
                 $this->owner->getServer()->dispatchCommand($sender, $pk["body"]["cmd"]);
-                $this->owner->respone(implode("\n", $sender->getAllMessages()), $pk["header"]["id"]);
+                $this->owner->respone(implode("\n", $sender->getAllMessages()), $pk["header"]["id"], true);
                 break;
             case "run":
             case "runAdmin":
-                $this->sendMessage("success", ["msg" => "未实现"], $pk["header"]["id"]);
+                $this->owner->respone("未实现", $pk["header"]["id"]);
                 break;
             case "add":
                 $this->owner->getServer()->addWhitelist($pk["body"]["xboxid"]);
-                $this->sendMessage("success", ["msg" => "已尝试添加白名单: " . $pk["body"]["xboxid"]], $pk["header"]["id"]);
+                $this->owner->respone("已尝试添加白名单: " . $pk["body"]["xboxid"], $pk["header"]["id"]);
                 break;
             case "delete":
                 $this->owner->getServer()->removeWhitelist($pk["body"]["xboxid"]);
-                $this->sendMessage("success", ["msg" => "已尝试移除白名单: " . $pk["body"]["xboxid"]], $pk["header"]["id"]);
+                $this->owner->respone("已尝试移除白名单: " . $pk["body"]["xboxid"], $pk["header"]["id"]);
                 break;
             case "queryList":
                 $keywords = isset($pk["body"]["key"]) ? explode(" ", $pk["body"]["key"]) : [];

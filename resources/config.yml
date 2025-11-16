@@ -18,6 +18,7 @@ group-chat:
 game-chat:
   post: true
   time-limit: 300
+  color-image-reply: 0
 platform:
   name: ""
   version: "dev"

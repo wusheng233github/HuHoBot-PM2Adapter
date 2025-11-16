@@ -61,13 +61,13 @@ class Main extends PluginBase implements Listener {
         // TODO: 控制不要转发
         $this->eventHandleTask->sendMessage("chat", ["msg" => $this->getServer()->getLanguage()->translateString($event->getFormat(), [$event->getPlayer()->getName(), $event->getMessage()]), "serverId" => $this->getHandshakeConfig()->getServerId()]);
     }
-    public function respone(string $msg, $uuid, $success = true) { // TODO: 其它地方有字数限制吗
+    public function respone(string $msg, $uuid, $formatting = false, $success = true) {
         $toolong = "（消息过长）";
         $wordlimit = $this->getConfig()->getNested("group-chat.word-limit");
         if(mb_strlen($msg) > $wordlimit) {
             $msg = mb_substr($msg, 0, $wordlimit - mb_strlen($toolong)) . $toolong;
         }
-        $this->eventHandleTask->sendMessage($success ? "success" : "error", ["msg" => $msg], $uuid);
+        $this->eventHandleTask->sendMessage($success ? "success" : "error", ["msg" => $msg, "callbackConvert" => $formatting ? $this->getConfig()->getNested("game-chat.color-image-reply") : 0], $uuid);
     }
     public function onCommand(CommandSender $sender, Command $command, $label, array $args) {
         if($command->getName() !== "huhobot") {
