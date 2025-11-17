@@ -305,7 +305,7 @@ class EventHandleTask extends Task implements EventListener {
             return;
         }
         $this->handlePacket($message);
-        $this->lastpong = time();
+        $this->lastpong = time(); // FIXME
     }
     public function onBinaryMessage(string $message) {
         $this->owner->getLogger()->notice("BinaryMessage: " . bin2hex($message));

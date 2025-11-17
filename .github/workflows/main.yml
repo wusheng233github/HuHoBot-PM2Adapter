@@ -10,10 +10,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@master
-      - name: Setup PHP 7.0
+      - name: Setup PHP 7.4
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "7.0"
+          php-version: "7.4"
+          tools: none
+          extensions: none, yaml
       - name: 下载DevTools
         run: wget -q -O DevTools.phar https://github.com/pmmp/DevTools/releases/download/1.12.8/DevTools_v1.12.8.phar
       - name: 清理插件目录
