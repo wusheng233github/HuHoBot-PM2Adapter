@@ -1,6 +1,6 @@
 # HuHoBot-PM2Adapter
 
-[![前玩GitHub Actions页面](https://img.shields.io/static/v1?label=%E4%B8%8B%E8%BD%BD&message=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=blue&logo=github&style=for-the-badge)](https://github.com/wusheng233github/HuHoBot-PM2Adapter/actions/workflows/main.yml)
+[![前往GitHub Actions页面](https://img.shields.io/static/v1?label=%E4%B8%8B%E8%BD%BD&message=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=blue&logo=github&style=for-the-badge)](https://github.com/wusheng233github/HuHoBot-PM2Adapter/actions/workflows/main.yml)
 
 前往 **GitHub Actions** 页面，进入 **最新的成功构建**，在 **Artifacts** 下载打包好的Phar
 
