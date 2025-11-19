@@ -27,7 +27,7 @@ class Main extends PluginBase implements Listener {
         if(!extension_loaded("openssl")) {
             $this->getLogger()->warning("需要openssl扩展才能使用WebSocket Secure连接");
         }
-        $this->handshakeConfig = new HandshakeConfig($this->getConfig()->getNested("id.serverid", str_repeat("0", 32)), $this->getConfig()->getNested("id.hashkey"), $this->getConfig()->getNested("id.name"), $this->getConfig()->getNested("platform.name"), $this->getConfig()->getNested("platform.version"));
+        $this->handshakeConfig = new HandshakeConfig($this->getConfig()->getNested("id.serverid", str_repeat("0", 16 * 2)), $this->getConfig()->getNested("id.hashkey"), $this->getConfig()->getNested("id.name"), $this->getConfig()->getNested("platform.name"), $this->getConfig()->getNested("platform.version"));
         $this->connect($this->getConfig()->getNested("network.botserver"));
         if($this->getConfig()->getNested("id.hashkey", "") === "") {
             $this->getLogger()->notice("未检测到绑定密钥，要想绑定QQ群，请让HuHoBot机器人执行 /绑定 " . $this->getConfig()->getNested("id.serverid", "服务器ID"));
@@ -61,7 +61,7 @@ class Main extends PluginBase implements Listener {
         // TODO: 控制不要转发
         $this->eventHandleTask->sendMessage("chat", ["msg" => $this->getServer()->getLanguage()->translateString($event->getFormat(), [$event->getPlayer()->getName(), $event->getMessage()]), "serverId" => $this->getHandshakeConfig()->getServerId()]);
     }
-    public function respone(string $msg, $uuid, $formatting = false, $success = true) {
+    public function response(string $msg, $uuid, $formatting = false, $success = true) {
         $toolong = "（消息过长）";
         $wordlimit = $this->getConfig()->getNested("group-chat.word-limit");
         if(mb_strlen($msg) > $wordlimit) {
