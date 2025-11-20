@@ -1,7 +1,7 @@
 name: HuHoBot
 description: HuHoBot PM2适配器
 author: wusheng233
-version: 0.3.4
+version: 0.3.5
 main: wusheng233\HuHoBot\Main
 api: 2.0.0
 geniapi: 1.7.3

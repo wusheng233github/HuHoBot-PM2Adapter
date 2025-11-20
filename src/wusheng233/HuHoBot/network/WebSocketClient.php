@@ -105,14 +105,14 @@ class WebSocketClient {
                     $this->handleWebSocketFrame($this->reader);
                 }
             } catch(\InvalidArgumentException $e) {
-                $this->close();
+                $this->close(1002);
                 throw $e;
             }
         }
         //var_dump([$read, $write, $except]);
     }
     public function isConnected() {
-        return $this->status === self::STATUS_CONNECTED || $this->isHandshakeing() || $this->isHandshaked() || $this->isClosing();
+        return !$this->isClosed() && !$this->isConnecting();
     }
     public function isConnecting() {
         return $this->status === self::STATUS_CONNECTING;
@@ -124,7 +124,7 @@ class WebSocketClient {
         return $this->status === self::STATUS_HANDSHAKEING;
     }
     public function isHandshaked() {
-        return $this->status === self::STATUS_HANDSHAKED;
+        return $this->status === self::STATUS_HANDSHAKED || $this->isClosing();
     }
     public function isClosing() {
         return $this->status === self::STATUS_CLOSING;
@@ -186,8 +186,13 @@ class WebSocketClient {
                 if($this->isClosing()) {
                     break;
                 }
+                $payload = $frame->getPayload();
+                if(strlen($payload) < 2) {
+                    throw new \InvalidArgumentException("close帧没有状态码");
+                }
+                $status = unpack("ncode/a*msg", $payload);
                 $this->status = self::STATUS_CLOSING;
-                $this->close($frame->getPayload(), null);
+                $this->close($status["code"], $status["msg"]);
                 break;
             case WebSocketFrame::OPCODE_PING:
                 $this->send(new WebSocketFrame(WebSocketFrame::OPCODE_PONG, $frame->getPayload()));
@@ -239,24 +244,24 @@ class WebSocketClient {
         }
         $this->buffer .= $data;
     }
-    public function close($payload = "", $status = 1000) {
+    public function close(int $status = 1000, string $reason = "") {
         if($this->isConnected()) {
-            if($this->isHandshaked()) {
-                if($this->socket && !feof($this->socket)) {
-                    if($status !== null) {
-                        $payload = pack("n", $status) . $payload; // ?
-                    }
+            if($this->socket && !feof($this->socket)) {
+                if($this->isHandshaked() && !$this->isClosing()) {
+                    $payload = pack("na*", $status, $reason);
                     try {
                         $this->send(new WebSocketFrame(WebSocketFrame::OPCODE_CONNECTION_CLOSE, $payload));
                     } catch(SocketException $e) {
 
                     }
-                    fclose($this->socket);
                 }
+                // https://www.php.net/manual/zh/function.fclose.php#65654
+                // https://www.php.net/manual/zh/function.fclose.php#109983
+                stream_socket_shutdown($this->socket, STREAM_SHUT_WR);
             }
             $this->socket = null;
             $this->status = self::STATUS_CLOSED;
-            $this->eventListener->onClosed(); // 只能调用一次
+            $this->eventListener->onClosed($status, $reason); // 只能调用一次
         }
         $this->context = null;
         $this->lastErrorCode = null;

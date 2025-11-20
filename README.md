@@ -108,6 +108,7 @@ version: 1
 | `/huhobot disconnect`或`/huhobot q`                           | `huhobot.disconnect` | 断开与bot服务器的连接         |
 | `/huhobot reconnect`或`/huhobot connect`或`/huhobot c [地址]` | `huhobot.connect`    | 重新连接bot服务器，可指定地址 |
 | `/huhobot reload`                                             | `huhobot`            | 重新启动整个插件              |
+| `/huhobot rtt`                                                | `huhobot`            | 查询网络连接往返时间          |
 
 ## 开发扩展插件
 可以通过监听`DataPacketReceiveEvent`事件拦截和处理来自bot服务器的数据包

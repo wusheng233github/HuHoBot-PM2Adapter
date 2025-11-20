@@ -5,24 +5,24 @@ use pocketmine\scheduler\Task;
 use pocketmine\utils\UUID;
 use wusheng233\HuHoBot\event\DataPacketReceiveEvent;
 use wusheng233\HuHoBot\network\EventListener;
+use wusheng233\HuHoBot\network\HeartbeatExecutor;
+use wusheng233\HuHoBot\network\HeartbeatService;
 use wusheng233\HuHoBot\network\WebSocketClient;
 use wusheng233\HuHoBot\network\WebSocketFrame;
 use wusheng233\HuHoBot\utils\QQCommandSender;
 
-class EventHandleTask extends Task implements EventListener {
+class EventHandleTask extends Task implements EventListener, HeartbeatExecutor {
     const STATUS_DISCONNECTED = 0;
     const STATUS_CONNECTED = 1;
     const STATUS_HANDSHAKED = 2;
     protected $owner;
-
-    // 未发送/未收到为false，已发送/接收到为时间戳
-    protected $lastping = false;
-    protected $lastpong = false;
+    protected $heartbeatService;
     protected $status = self::STATUS_DISCONNECTED;
     protected $client;
     public function __construct(Main $owner, string $host) {
         $this->owner = $owner;
         $this->client = new WebSocketClient($host, $this);
+        $this->heartbeatService = new HeartbeatService($this, $this->owner->getConfig()->getNested("network.heart-period"));
     }
     public function isConnected() {
         return $this->client->isConnected();
@@ -48,26 +48,20 @@ class EventHandleTask extends Task implements EventListener {
     public function onRun($currentTick) {
         try {
             $this->client->onRun();
+            $this->heartbeatService->onRun();
         } catch(\Exception $e) {
             $this->owner->getLogger()->logException($e);
             $this->cancel();
         }
-        if($this->isHandshaked()) { // 无效的客户端连接
-            $currentTime = time();
-            if($this->lastping !== false && $this->lastpong < $this->lastping - 15) { // timeout
-                $this->owner->getLogger()->warning("连接断开？pong已超时");
-                $this->owner->getLogger()->debug("lastping: " . var_export($this->lastping, true));
-                $this->owner->getLogger()->debug("lastpong: " . var_export($this->lastpong, true));
-                $this->cancel();
-                return;
-            } else if($currentTime - $this->owner->getConfig()->getNested("network.heart-period") > $this->lastping) {
-                $this->lastping = $currentTime;
-                if($this->lastpong === false) {
-                    $this->lastpong = $currentTime;
-                }
-                $this->sendMessage("heart", []); // 未捕获异常
-            }
-        }
+    }
+    public function onTimeout() {
+        $this->owner->getLogger()->warning("连接断开？pong已超时");
+        $this->owner->getLogger()->debug("lastping: " . $this->getHeartbeatService()->getLastPing());
+        $this->owner->getLogger()->debug("lastpong: " . $this->getHeartbeatService()->getLastPong());
+        $this->cancel();
+    }
+    public function sendHeart() {
+        $this->sendMessage("heart", []);
     }
     protected function handlePacket($pk) {
         $pktype = $pk["header"]["type"];
@@ -81,7 +75,7 @@ class EventHandleTask extends Task implements EventListener {
                 $this->owner->getLogger()->notice("下发了新的绑定密钥");
                 break;
             case "heart":
-                $this->lastpong = time(); // TODO: 查看延迟
+                $this->heartbeatService->onPongReceived();
                 break;
             case "shaked":
                 switch($pk["body"]["code"]) {
@@ -120,6 +114,7 @@ class EventHandleTask extends Task implements EventListener {
                     $this->cancel();
                     return;
                 }
+                $this->heartbeatService->start();
                 break;
             case "chat":
                 $lines = explode("\n", $pk["body"]["msg"]);
@@ -226,14 +221,12 @@ class EventHandleTask extends Task implements EventListener {
         $this->client->close();
     }
     private function cancel() {
+        $this->heartbeatService->shutdown();
         $this->owner->getServer()->getScheduler()->cancelTask($this->getTaskId());
         $this->owner->shutdown();
     }
-    public function getLastPing() {
-        return $this->lastping;
-    }
-    public function getLastPong() {
-        return $this->lastpong;
+    public function getHeartbeatService() {
+        return $this->heartbeatService;
     }
     public static function mb_str_split(string $string, int $length = 1, $encoding = null) {
         $array = [];
@@ -289,8 +282,14 @@ class EventHandleTask extends Task implements EventListener {
         $this->status = self::STATUS_CONNECTED;
         $this->owner->getLogger()->info("WebSocket握手成功");
     }
-    public function onClosed() {
-        $this->owner->getLogger()->info("断开连接");
+    public function onClosed(int $code, string $reason) {
+        $this->owner->getLogger()->info(
+            "断开连接" . (
+                $reason
+                 ? "，Code $code: $reason" // 有理由
+                 : "" // 没理由
+            )
+        );
         $this->cancel();
     }
     public function onMessage(string $message) {
@@ -305,7 +304,6 @@ class EventHandleTask extends Task implements EventListener {
             return;
         }
         $this->handlePacket($message);
-        $this->lastpong = time(); // FIXME
     }
     public function onBinaryMessage(string $message) {
         $this->owner->getLogger()->notice("BinaryMessage: " . bin2hex($message));

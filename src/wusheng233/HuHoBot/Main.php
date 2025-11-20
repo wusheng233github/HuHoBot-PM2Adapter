@@ -76,14 +76,18 @@ class Main extends PluginBase implements Listener {
         if(!$command->testPermission($sender)) {
             return true;
         }
-        switch(isset($args[0]) ? $args[0] : "") { // TODO: reload
+        if(!isset($args[0])) {
+            $args[0] = "help"; // 默认进入help
+        }
+        switch($args[0]) { // TODO: reload
             case "help":
                 $sender->sendMessage(implode("\n", [
                     "命令                                    说明",
                     "/huhobot bind <验证码>                  绑定QQ群",
                     "/huhobot <disconnect|q>                 断开连接，停止互通",
                     "/huhobot <reconnect|connect|c> [地址]   连接服务器",
-                    "/huhobot reload                         重新启动整个插件"
+                    "/huhobot reload                         重新启动整个插件",
+                    "/huhobot rtt                            查询网络连接往返时间"
                 ]));
                 break;
             case "bind":
@@ -137,6 +141,14 @@ class Main extends PluginBase implements Listener {
             case "reload":
                 $this->getServer()->getPluginManager()->disablePlugin($this);
                 $this->getServer()->getPluginManager()->enablePlugin($this);
+                break;
+            case "rtt":
+                $rtt = $this->eventHandleTask->getHeartbeatService()->getRtt();
+                if($rtt < 0) {
+                    $sender->sendMessage("未启动心跳或正在等待回应");
+                } else {
+                    $sender->sendMessage("RTT: " . ceil($rtt * 1000) . "ms");
+                }
                 break;
             default:
                 return false;
