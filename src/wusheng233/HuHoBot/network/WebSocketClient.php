@@ -28,8 +28,12 @@ class WebSocketClient {
     public function __construct(string $url, EventListener $eventListener) {
         $url = parse_url($url);
 
-        if($url === false || !isset($url["scheme"]) || !isset($url["host"])) {
-            throw new \InvalidArgumentException("?");
+        if($url === false) {
+            throw new \InvalidArgumentException("URL解析失败");
+        }
+
+        if(!isset($url["scheme"]) || !isset($url["host"])) {
+            throw new \InvalidArgumentException("URL不完整");
         }
 
         $scheme = strtolower($url["scheme"]);
@@ -42,7 +46,7 @@ class WebSocketClient {
             $path .= "?{$url["query"]}";
         }
         if(isset($url["fragment"])) {
-            throw new \InvalidArgumentException("错误");
+            throw new \InvalidArgumentException("禁止使用fragment");
             //$path .= "#{$url["fragment"]}";
         }
 
@@ -155,12 +159,12 @@ class WebSocketClient {
         if(!$frame->getFin()) { // TODO: 测试
             if($frame->getOpCode() == WebSocketFrame::OPCODE_CONTINUATION) {
                 if($this->opcode === null) {
-                    throw new ProtocolException("?");
+                    throw new ProtocolException("突然收到持续帧");
                 }
                 $this->payload .= $frame->getPayload();
             } else {
                 if($this->opcode !== null) {
-                    throw new ProtocolException("?");
+                    throw new ProtocolException("有持续帧进行，收到非持续帧"); // 可能需要处理
                 }
                 $this->opcode = $frame->getOpCode();
                 $this->payload = $frame->getPayload();
@@ -169,7 +173,7 @@ class WebSocketClient {
         }
         if($frame->getOpCode() == WebSocketFrame::OPCODE_CONTINUATION) {
             if($this->opcode === null) {
-                throw new ProtocolException("?");
+                throw new ProtocolException("突然收到持续帧，FIN");
             }
             $frame = new WebSocketFrame($this->opcode, $this->payload);
             $this->opcode = null;

@@ -24,8 +24,13 @@ class Main extends PluginBase implements Listener {
         //self::$pluginversion = $this->getDescription()->getVersion();
         $this->saveDefaultConfig();
         $this->jsonConfigUpgrade();
+        if($this->getConfig()->getNested("network.botserver") == "") {
+            $this->getLogger()->error("未配置后台地址，请在config.yml中配置network.botserver，带URL Scheme");
+            $this->getServer()->getPluginManager()->disablePlugin($this);
+            return;
+        }
         if(!extension_loaded("openssl")) {
-            $this->getLogger()->warning("需要openssl扩展才能使用WebSocket Secure连接");
+            $this->getLogger()->notice("如果使用WebSocket Secure连接需要openssl扩展");
         }
         $this->handshakeConfig = new HandshakeConfig($this->getConfig()->getNested("id.serverid", str_repeat("0", 16 * 2)), $this->getConfig()->getNested("id.hashkey"), $this->getConfig()->getNested("id.name"), $this->getConfig()->getNested("platform.name"), $this->getConfig()->getNested("platform.version"));
         $this->connect($this->getConfig()->getNested("network.botserver"));
